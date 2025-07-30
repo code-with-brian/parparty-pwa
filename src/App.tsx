@@ -1,10 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { useEffect } from 'react';
+import LandingPage from './pages/LandingPage';
 import JoinGame from './pages/JoinGame';
 import GameScorecard from './pages/GameScorecard';
 import LockerRoom from './pages/LockerRoom';
 import Test from './pages/Test';
+import GameCreator from './pages/GameCreator';
 import { DeepLinkHandler } from './utils/deepLink';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -21,8 +23,9 @@ function App() {
       <ConvexProvider client={convex}>
         <Router>
           <Routes>
-            <Route path="/" element={<Navigate to="/join/demo" replace />} />
+            <Route path="/" element={<LandingPage />} />
             <Route path="/test" element={<Test />} />
+            <Route path="/create" element={<GameCreator />} />
             <Route path="/join/:gameId" element={<JoinGame />} />
             <Route path="/join" element={<JoinGame />} />
             <Route path="/game/:gameId" element={<GameScorecard />} />

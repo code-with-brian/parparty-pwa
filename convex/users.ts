@@ -55,3 +55,25 @@ export const getByToken = query({
     }
   },
 });
+
+// Create a test user for development
+export const createTestUser = mutation({
+  args: {
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const tokenIdentifier = `test_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+      
+      const userId = await ctx.db.insert("users", {
+        name: args.name,
+        tokenIdentifier,
+      });
+
+      return userId;
+    } catch (error) {
+      console.error("Error creating test user:", error);
+      throw new ConvexError("Failed to create test user");
+    }
+  },
+});

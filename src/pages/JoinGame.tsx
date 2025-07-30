@@ -38,24 +38,7 @@ export default function JoinGame() {
   // Validate game and load preview when gameId changes
   useEffect(() => {
     if (gameId) {
-      // Special handling for demo mode
-      if (gameId.toLowerCase() === 'demo') {
-        setGamePreview({
-          id: 'demo' as any,
-          name: 'Demo Golf Round',
-          status: 'active',
-          format: 'stroke',
-          startedAt: Date.now() - 30 * 60 * 1000, // Started 30 minutes ago
-          playerCount: 3,
-          course: {
-            name: 'Pebble Beach Demo Course',
-            address: '123 Golf Course Dr, Demo City'
-          },
-          canJoin: true
-        });
-      } else {
-        loadGamePreview(gameId);
-      }
+      loadGamePreview(gameId);
     } else {
       setGamePreview(null);
     }
@@ -142,19 +125,6 @@ export default function JoinGame() {
     try {
       setLoading(true);
       setError(null);
-
-      // Special handling for demo mode
-      if (gameId?.toLowerCase() === 'demo') {
-        // Just navigate to demo game without backend calls
-        navigate(`/game/demo`, { 
-          state: { 
-            playerId: 'demo-player-1', 
-            playerName: playerName.trim() || 'Demo Player',
-            gamePreview 
-          } 
-        });
-        return;
-      }
 
       // Create or resume guest session
       const guestSession = await guestSessionManager.createSession(playerName.trim() || undefined);
@@ -339,9 +309,19 @@ export default function JoinGame() {
             </Button>
           )}
 
-          <div className="text-center text-xs text-gray-500 space-y-1">
-            <div>Deep link support: {DeepLinkHandler.isDeepLinkSupported() ? '✓' : '✗'}</div>
-            <div>Share link: {gameId ? DeepLinkHandler.generateGameLink(gameId) : 'N/A'}</div>
+          <div className="text-center space-y-3">
+            <Button 
+              variant="outline"
+              onClick={() => navigate('/create')}
+              className="w-full"
+            >
+              Create New Game
+            </Button>
+            
+            <div className="text-xs text-gray-500 space-y-1">
+              <div>Deep link support: {DeepLinkHandler.isDeepLinkSupported() ? '✓' : '✗'}</div>
+              <div>Share link: {gameId ? DeepLinkHandler.generateGameLink(gameId) : 'N/A'}</div>
+            </div>
           </div>
         </CardContent>
         </Card>

@@ -3,7 +3,10 @@ import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { useState, useEffect } from 'react';
-import { Users, Clock, Target } from 'lucide-react';
+import { Users, Clock, Target, Trophy } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
 import SocialFeed from '@/components/SocialFeed';
 import PhotoCapture from '@/components/PhotoCapture';
 import FoodOrderingMenu from '@/components/FoodOrderingMenu';
@@ -27,45 +30,13 @@ export default function GameScorecard() {
 
   // Real-time game state subscription
   const gameState = useQuery(api.games.getGameState, 
-    (gameId && gameId !== 'demo') ? { gameId: gameId as Id<"games"> } : "skip"
+    gameId ? { gameId: gameId as Id<"games"> } : "skip"
   );
 
   // Get detailed game data including scores
   const gameData = useQuery(api.games.getGameData,
-    (gameId && gameId !== 'demo') ? { gameId: gameId as Id<"games"> } : "skip"
+    gameId ? { gameId: gameId as Id<"games"> } : "skip"
   );
-
-  // Demo data for demo mode
-  const demoGameState = gameId === 'demo' ? {
-    game: {
-      _id: 'demo',
-      name: 'Demo Golf Round',
-      status: 'active',
-      format: 'stroke',
-      startedAt: Date.now() - 30 * 60 * 1000,
-    },
-    players: [
-      { _id: 'demo-player-1', name: 'Demo Player', totalStrokes: 15, holesPlayed: 4, currentPosition: 1 },
-      { _id: 'demo-player-2', name: 'Alex Johnson', totalStrokes: 18, holesPlayed: 4, currentPosition: 2 },
-      { _id: 'demo-player-3', name: 'Sam Wilson', totalStrokes: 22, holesPlayed: 4, currentPosition: 3 }
-    ]
-  } : null;
-
-  const demoGameData = gameId === 'demo' ? {
-    game: demoGameState?.game,
-    players: demoGameState?.players,
-    scores: [
-      { playerId: 'demo-player-1', holeNumber: 1, strokes: 4, timestamp: Date.now() - 25 * 60 * 1000 },
-      { playerId: 'demo-player-1', holeNumber: 2, strokes: 3, timestamp: Date.now() - 20 * 60 * 1000 },
-      { playerId: 'demo-player-1', holeNumber: 3, strokes: 5, timestamp: Date.now() - 15 * 60 * 1000 },
-      { playerId: 'demo-player-1', holeNumber: 4, strokes: 3, timestamp: Date.now() - 10 * 60 * 1000 },
-    ],
-    photos: []
-  } : null;
-
-  // Use demo data if in demo mode
-  const currentGameState = gameId === 'demo' ? demoGameState : gameState;
-  const currentGameData = gameId === 'demo' ? demoGameData : gameData;
 
   // Record score mutation
   const recordScore = useMutation(api.games.recordScore);
@@ -78,80 +49,34 @@ export default function GameScorecard() {
 
   // Set current player ID from guest session or user context
   useEffect(() => {
-    // For now, we'll use the first player as current player
-    // In a real app, this would come from authentication context
-    if (currentGameState?.players && currentGameState.players.length > 0) {
-      setCurrentPlayerId(currentGameState.players[0]._id);
+    // Get current player from game state or location state
+    if (gameState?.players && gameState.players.length > 0) {
+      // Try to get player ID from navigation state first
+      const locationState = window.history.state?.usr;
+      if (locationState?.playerId) {
+        setCurrentPlayerId(locationState.playerId);
+      } else {
+        // Default to first player for now
+        setCurrentPlayerId(gameState.players[0]._id);
+      }
     }
-  }, [currentGameState]);
+  }, [gameState]);
 
   const detectAchievements = async (playerId: Id<"players">, holeNumber: number, strokes: number) => {
-    try {
-      // Get player's previous scores to detect achievements
-      const playerScores = currentGameData?.scores.filter(s => s.playerId === playerId) || [];
-      const isFirstScore = playerScores.length === 0;
-      
-      // Detect hole-in-one
-      if (strokes === 1) {
-        await createAchievementPost({
-          gameId: gameId as Id<"games">,
-          playerId,
-          achievementType: "hole_in_one",
-          holeNumber,
-          score: strokes,
-        });
-      }
-      // Detect eagle (2 under par, assuming par 4)
-      else if (strokes === 2) {
-        await createAchievementPost({
-          gameId: gameId as Id<"games">,
-          playerId,
-          achievementType: "eagle",
-          holeNumber,
-          score: strokes,
-        });
-      }
-      // Detect birdie (1 under par, assuming par 4)
-      else if (strokes === 3) {
-        await createAchievementPost({
-          gameId: gameId as Id<"games">,
-          playerId,
-          achievementType: "birdie",
-          holeNumber,
-          score: strokes,
-        });
-      }
-      // First score achievement
-      else if (isFirstScore) {
-        await createAchievementPost({
-          gameId: gameId as Id<"games">,
-          playerId,
-          achievementType: "first_score",
-        });
-      }
-    } catch (error) {
-      console.error('Error creating achievement post:', error);
-    }
+    // Achievement detection is now handled automatically by the backend
+    // in the recordScore mutation, so we don't need to do it here
   };
 
   const handleScoreUpdate = async (playerId: Id<"players">, holeNumber: number, strokes: number) => {
     try {
       setError(null);
       
-      // Skip backend calls in demo mode
-      if (gameId !== 'demo') {
-        await recordScore({
-          playerId,
-          holeNumber,
-          strokes,
-        });
-        
-        // Detect and create achievement posts
-        await detectAchievements(playerId, holeNumber, strokes);
-      } else {
-        // In demo mode, just show celebration
-        await detectAchievements(playerId, holeNumber, strokes);
-      }
+      // Record score in backend (achievements are handled automatically)
+      await recordScore({
+        playerId,
+        holeNumber,
+        strokes,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record score');
     }
@@ -177,14 +102,15 @@ export default function GameScorecard() {
         <Card className="w-full max-w-md glass">
           <CardContent className="p-6 text-center">
             <div className="text-red-600 mb-4">Invalid game ID</div>
-            <Button onClick={() => navigate('/')}>Go Home</Button>
+            <Button onClick={() => navigate('/join')}>Back to Join Game</Button>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  if (!currentGameState || !currentGameData) {
+  // Show loading state while data is being fetched
+  if (gameState === undefined || gameData === undefined) {
     return (
       <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
         <GolfLoader size="lg" text="Loading game..." />
@@ -192,7 +118,22 @@ export default function GameScorecard() {
     );
   }
 
-  if (currentGameState.game.status === "finished") {
+  // Show error state if game doesn't exist
+  if (gameState === null || gameData === null) {
+    return (
+      <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+        <Card className="w-full max-w-md glass">
+          <CardContent className="p-6 text-center">
+            <div className="text-red-600 mb-4">Game not found</div>
+            <p className="text-gray-600 mb-4">This game may have been deleted or you may not have access to it.</p>
+            <Button onClick={() => navigate('/join')}>Back to Join Game</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (gameState.game.status === "finished") {
     return (
       <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
         <motion.div
@@ -221,7 +162,7 @@ export default function GameScorecard() {
   }
 
   // Create score lookup for easy access
-  const scoresByPlayerAndHole = currentGameData.scores.reduce((acc, score) => {
+  const scoresByPlayerAndHole = gameData.scores.reduce((acc, score) => {
     const key = `${score.playerId}-${score.holeNumber}`;
     acc[key] = score.strokes;
     return acc;
@@ -233,14 +174,14 @@ export default function GameScorecard() {
     <MobileLayout
       header={
         <NavigationHeader
-          title={currentGameState.game.name}
-          subtitle={`${currentGameState.players.length} players • ${currentGameState.game.status}`}
+          title={gameState.game.name}
+          subtitle={`${gameState.players.length} players • ${gameState.game.status}`}
           onBack={() => navigate(-1)}
           onShare={() => {
             if (navigator.share) {
               navigator.share({
                 title: 'ParParty Golf Game',
-                text: `Join my golf game: ${currentGameState.game.name}`,
+                text: `Join my golf game: ${gameState.game.name}`,
                 url: window.location.href,
               });
             }
@@ -273,8 +214,8 @@ export default function GameScorecard() {
       {/* Tab Content */}
       {activeTab === 'scorecard' ? (
         <ScorecardScreen
-          players={currentGameState.players}
-          scores={currentGameData.scores}
+          players={gameState.players}
+          scores={gameData.scores}
           onScoreUpdate={handleScoreUpdate}
         />
       ) : activeTab === 'social' ? (
@@ -326,12 +267,12 @@ export default function GameScorecard() {
       )}
 
       {/* Food Ordering Menu Modal */}
-      {showFoodMenu && currentPlayerId && currentGameState.game.courseId && (
+      {showFoodMenu && currentPlayerId && gameState.game.courseId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <FoodOrderingMenu
             gameId={gameId as Id<"games">}
             playerId={currentPlayerId}
-            courseId={currentGameState.game.courseId}
+            courseId={gameState.game.courseId}
             currentHole={1}
             onClose={() => setShowFoodMenu(false)}
             onOrderPlaced={() => {
