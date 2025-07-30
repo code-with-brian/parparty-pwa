@@ -58,6 +58,11 @@ export class DeepLinkHandler {
    * Validate a game ID format
    */
   static validateGameId(gameId: string): boolean {
+    // Allow "demo" as a special case for testing
+    if (gameId.toLowerCase() === 'demo') {
+      return true;
+    }
+    
     // Game IDs should be alphanumeric, 6-12 characters
     const gameIdRegex = /^[A-Z0-9]{6,12}$/;
     return gameIdRegex.test(gameId);

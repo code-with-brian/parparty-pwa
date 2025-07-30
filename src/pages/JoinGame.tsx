@@ -9,6 +9,8 @@ import { useConvex } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { GuestSessionManager } from '@/lib/GuestSessionManager';
 import type { Id } from '../../convex/_generated/dataModel';
+import { motion } from 'framer-motion';
+import { GolfLoader } from '@/components/ui/golf-loader';
 
 interface GamePreview {
   id: Id<"games">;
@@ -36,7 +38,24 @@ export default function JoinGame() {
   // Validate game and load preview when gameId changes
   useEffect(() => {
     if (gameId) {
-      loadGamePreview(gameId);
+      // Special handling for demo mode
+      if (gameId.toLowerCase() === 'demo') {
+        setGamePreview({
+          id: 'demo' as any,
+          name: 'Demo Golf Round',
+          status: 'active',
+          format: 'stroke',
+          startedAt: Date.now() - 30 * 60 * 1000, // Started 30 minutes ago
+          playerCount: 3,
+          course: {
+            name: 'Pebble Beach Demo Course',
+            address: '123 Golf Course Dr, Demo City'
+          },
+          canJoin: true
+        });
+      } else {
+        loadGamePreview(gameId);
+      }
     } else {
       setGamePreview(null);
     }
@@ -124,6 +143,19 @@ export default function JoinGame() {
       setLoading(true);
       setError(null);
 
+      // Special handling for demo mode
+      if (gameId?.toLowerCase() === 'demo') {
+        // Just navigate to demo game without backend calls
+        navigate(`/game/demo`, { 
+          state: { 
+            playerId: 'demo-player-1', 
+            playerName: playerName.trim() || 'Demo Player',
+            gamePreview 
+          } 
+        });
+        return;
+      }
+
       // Create or resume guest session
       const guestSession = await guestSessionManager.createSession(playerName.trim() || undefined);
 
@@ -159,8 +191,13 @@ export default function JoinGame() {
 
   if (showQRScanner) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-4">
+      <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+        <motion.div 
+          className="w-full max-w-md space-y-4"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
           <QRScanner
             onScan={handleQRScan}
             onError={handleQRError}
@@ -173,19 +210,24 @@ export default function JoinGame() {
           >
             Back to Join Game
           </Button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl font-bold text-green-800">
-            Join Game
-          </CardTitle>
-        </CardHeader>
+    <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Card className="w-full max-w-md card-hover glass">
+          <CardHeader>
+            <CardTitle className="text-center text-2xl font-bold text-gradient">
+              ⛳ Join Game
+            </CardTitle>
+          </CardHeader>
         <CardContent className="space-y-4">
           {error && (
             <div className="text-red-600 text-sm bg-red-50 p-3 rounded border border-red-200">
@@ -196,7 +238,7 @@ export default function JoinGame() {
           {/* Game Preview Section */}
           {loading && (
             <div className="text-center py-4">
-              <div className="text-gray-600">Loading game information...</div>
+              <GolfLoader size="md" text="Loading game information..." />
             </div>
           )}
 
@@ -257,11 +299,18 @@ export default function JoinGame() {
           {/* Action Buttons */}
           {gamePreview && gamePreview.canJoin ? (
             <Button 
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full bg-green-600 hover:bg-green-700 transition-all hover:scale-105"
               onClick={handleJoinGame}
               disabled={loading}
             >
-              {loading ? 'Joining...' : 'Join Game'}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <GolfLoader size="sm" />
+                  <span>Joining...</span>
+                </div>
+              ) : (
+                'Join Game'
+              )}
             </Button>
           ) : gameId && !loading && !gamePreview ? (
             <Button 
@@ -295,7 +344,8 @@ export default function JoinGame() {
             <div>Share link: {gameId ? DeepLinkHandler.generateGameLink(gameId) : 'N/A'}</div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      </motion.div>
     </div>
   );
 }

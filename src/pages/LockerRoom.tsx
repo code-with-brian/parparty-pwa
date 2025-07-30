@@ -22,16 +22,20 @@ import {
 } from 'lucide-react';
 import SponsorRewards from '@/components/SponsorRewards';
 import RedemptionHistory from '@/components/RedemptionHistory';
+import { motion, AnimatePresence } from 'framer-motion';
+import { GolfLoader } from '@/components/ui/golf-loader';
 
 interface GameSummaryProps {
   game: any;
   players: any[];
   scores: any[];
   photos: any[];
+  orders?: any[];
+  highlights?: any;
   currentPlayerId: Id<"players"> | null;
 }
 
-function GameSummary({ game, players, scores, photos, currentPlayerId }: GameSummaryProps) {
+function GameSummary({ game, players, scores, photos, orders = [], highlights, currentPlayerId }: GameSummaryProps) {
   // Calculate player statistics
   const playerStats = players.map(player => {
     const playerScores = scores.filter(s => s.playerId === player._id);
@@ -52,6 +56,7 @@ function GameSummary({ game, players, scores, photos, currentPlayerId }: GameSum
       bestHole,
       worstHole,
       playerPhotos: photos.filter(p => p.playerId === player._id),
+      playerOrders: orders.filter(o => o.playerId === player._id),
     };
   }).sort((a, b) => {
     if (a.totalStrokes !== b.totalStrokes) {
@@ -207,6 +212,9 @@ function GameSummary({ game, players, scores, photos, currentPlayerId }: GameSum
                       {player.playerPhotos.length > 0 && (
                         <span className="ml-2">📸 {player.playerPhotos.length}</span>
                       )}
+                      {player.playerOrders.length > 0 && (
+                        <span className="ml-2">🍔 {player.playerOrders.length}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -254,6 +262,100 @@ function GameSummary({ game, players, scores, photos, currentPlayerId }: GameSum
                 <Button variant="outline" size="sm">
                   View All {photos.length} Photos
                 </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* F&B Orders Summary */}
+      {orders.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🍔 F&B Orders ({orders.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {orders.slice(0, 5).map((order) => (
+                <div key={order._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                      🍔
+                    </div>
+                    <div>
+                      <div className="font-medium text-sm">{order.playerName}</div>
+                      <div className="text-xs text-gray-500">
+                        {order.items.map(item => `${item.quantity}x ${item.name}`).join(", ")}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {order.deliveryLocation === "hole" && order.holeNumber
+                          ? `Hole ${order.holeNumber}`
+                          : order.deliveryLocation === "clubhouse"
+                          ? "Clubhouse"
+                          : "Golf Cart"
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-medium">${order.totalAmount.toFixed(2)}</div>
+                    <div className="text-xs text-gray-500 capitalize">{order.status}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {orders.length > 5 && (
+              <div className="text-center mt-4">
+                <Button variant="outline" size="sm">
+                  View All {orders.length} Orders
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Highlights */}
+      {highlights && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-purple-500" />
+              Your Round Story
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg mb-4">
+              <p className="text-gray-700 leading-relaxed">{highlights.narrative}</p>
+            </div>
+            
+            {highlights.keyMoments.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-800">Key Moments</h4>
+                {highlights.keyMoments.slice(0, 5).map((moment, index) => (
+                  <div key={index} className="flex items-start gap-3 p-3 bg-white rounded-lg border">
+                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      {moment.type === "best_shot" ? "⭐" : 
+                       moment.type === "order" ? "🍔" : 
+                       moment.type === "achievement" ? "🏆" : 
+                       moment.type === "social_moment" ? "📸" : "⛳"}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-700">{moment.description}</p>
+                      {moment.holeNumber && (
+                        <p className="text-xs text-gray-500 mt-1">Hole {moment.holeNumber}</p>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {new Date(moment.timestamp).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>
@@ -352,6 +454,20 @@ export default function LockerRoom() {
   // Get complete game data
   const gameData = useQuery(api.games.getGameData,
     gameId ? { gameId: gameId as Id<"games"> } : "skip"
+  );
+
+  // Get F&B orders for the game
+  const gameOrders = useQuery(api.foodOrders.getGameOrders,
+    gameId ? { gameId: gameId as Id<"games"> } : "skip"
+  );
+
+  // Get highlights for the current player
+  const playerHighlights = useQuery(
+    currentPlayerId && gameId ? api.highlights.getPlayerHighlights : "skip",
+    currentPlayerId && gameId ? { 
+      gameId: gameId as Id<"games">, 
+      playerId: currentPlayerId 
+    } : "skip"
   );
 
   // Set current player ID from guest session or user context
@@ -497,6 +613,8 @@ export default function LockerRoom() {
               players={gameData.players}
               scores={gameData.scores}
               photos={gameData.photos}
+              orders={gameOrders || []}
+              highlights={playerHighlights}
               currentPlayerId={currentPlayerId}
             />
             
