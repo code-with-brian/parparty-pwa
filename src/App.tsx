@@ -1,0 +1,30 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { useEffect } from 'react';
+import JoinGame from './pages/JoinGame';
+import GameScorecard from './pages/GameScorecard';
+import { DeepLinkHandler } from './utils/deepLink';
+
+const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+
+function App() {
+  useEffect(() => {
+    // Initialize deep link handlers when app starts
+    DeepLinkHandler.registerLinkHandlers();
+  }, []);
+
+  return (
+    <ConvexProvider client={convex}>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Navigate to="/join/demo" replace />} />
+          <Route path="/join/:gameId" element={<JoinGame />} />
+          <Route path="/join" element={<JoinGame />} />
+          <Route path="/game/:gameId" element={<GameScorecard />} />
+        </Routes>
+      </Router>
+    </ConvexProvider>
+  );
+}
+
+export default App;
