@@ -17,6 +17,7 @@ import type * as games from "../games.js";
 import type * as guests from "../guests.js";
 import type * as photos from "../photos.js";
 import type * as socialPosts from "../socialPosts.js";
+import type * as sponsors from "../sponsors.js";
 import type * as users from "../users.js";
 
 /**
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   guests: typeof guests;
   photos: typeof photos;
   socialPosts: typeof socialPosts;
+  sponsors: typeof sponsors;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

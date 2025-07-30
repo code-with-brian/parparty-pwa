@@ -3,6 +3,7 @@ import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { useEffect } from 'react';
 import JoinGame from './pages/JoinGame';
 import GameScorecard from './pages/GameScorecard';
+import LockerRoom from './pages/LockerRoom';
 import { DeepLinkHandler } from './utils/deepLink';
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
@@ -21,6 +22,7 @@ function App() {
           <Route path="/join/:gameId" element={<JoinGame />} />
           <Route path="/join" element={<JoinGame />} />
           <Route path="/game/:gameId" element={<GameScorecard />} />
+          <Route path="/finish/:gameId" element={<LockerRoom />} />
         </Routes>
       </Router>
     </ConvexProvider>
