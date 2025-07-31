@@ -17,10 +17,10 @@ export function MobileLayout({
   showStatusBar = true 
 }: MobileLayoutProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex flex-col">
+    <div className="min-h-screen gradient-party-main flex flex-col">
       {/* Status bar spacer for iOS */}
       {showStatusBar && (
-        <div className="h-0 safe-area-pt bg-green-600" />
+        <div className="h-0 safe-area-pt bg-slate-900" />
       )}
       
       {/* Header */}
@@ -29,7 +29,7 @@ export function MobileLayout({
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.3 }}
-          className="bg-white/90 backdrop-blur-md border-b border-green-100 safe-area-pl safe-area-pr"
+          className="glass-party border-b border-green-500/20 safe-area-pl safe-area-pr"
         >
           {header}
         </motion.header>
@@ -51,7 +51,7 @@ export function MobileLayout({
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="bg-white/90 backdrop-blur-md border-t border-green-100 safe-area-pl safe-area-pr safe-area-pb"
+          className="glass-party border-t border-green-500/20 safe-area-pl safe-area-pr safe-area-pb"
         >
           {footer}
         </motion.footer>

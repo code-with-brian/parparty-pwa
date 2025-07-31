@@ -141,7 +141,7 @@ export default function GameScorecard() {
 
   if (!gameId) {
     return (
-      <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+      <div className="min-h-screen gradient-party-main flex items-center justify-center p-4">
         <Card className="w-full max-w-md glass">
           <CardContent className="p-6 text-center">
             <div className="text-red-600 mb-4">Invalid game ID</div>
@@ -155,7 +155,7 @@ export default function GameScorecard() {
   // Show loading state while data is being fetched
   if (gameState === undefined || gameData === undefined) {
     return (
-      <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+      <div className="min-h-screen gradient-party-main flex items-center justify-center p-4">
         <GolfLoader size="lg" text="Loading game..." />
       </div>
     );
@@ -164,7 +164,7 @@ export default function GameScorecard() {
   // Show error state if game doesn't exist
   if (gameState === null || gameData === null) {
     return (
-      <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+      <div className="min-h-screen gradient-party-main flex items-center justify-center p-4">
         <Card className="w-full max-w-md glass">
           <CardContent className="p-6 text-center">
             <div className="text-red-600 mb-4">Game not found</div>
@@ -178,7 +178,7 @@ export default function GameScorecard() {
 
   if (gameState.game.status === "finished") {
     return (
-      <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+      <div className="min-h-screen gradient-party-main flex items-center justify-center p-4">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -232,7 +232,7 @@ export default function GameScorecard() {
           rightAction={
             <button
               onClick={handleFinishGame}
-              className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors"
+              className="px-3 py-1 bg-red-500/20 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/30 transition-colors border border-red-500/30"
             >
               Finish
             </button>
@@ -276,7 +276,7 @@ export default function GameScorecard() {
             <>
               <button
                 onClick={() => setShowFoodMenu(true)}
-                className="w-full mb-6 p-4 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors"
+                className="w-full mb-6 p-4 gradient-party-button text-white rounded-xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg shadow-green-500/25"
               >
                 🍔 Order Food & Beverages
               </button>

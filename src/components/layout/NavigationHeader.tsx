@@ -22,73 +22,82 @@ export function NavigationHeader({
   rightAction
 }: NavigationHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      {/* Left side */}
-      <div className="flex items-center gap-3 flex-1">
-        {showBackButton && onBack && (
-          <motion.div
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBack}
-              className="w-10 h-10 p-0 rounded-full hover:bg-green-100"
-            >
-              <ArrowLeft className="w-5 h-5 text-green-700" />
-            </Button>
-          </motion.div>
-        )}
+    <div className="relative">
+      {/* Premium glass header */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white/[0.02] backdrop-blur-2xl border-b border-white/10">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent" />
         
-        <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-semibold text-gray-900 truncate">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="text-sm text-gray-500 truncate">
-              {subtitle}
-            </p>
+        {/* Left side */}
+        <div className="relative flex items-center gap-4 flex-1">
+          {showBackButton && onBack && (
+            <motion.button
+              onClick={onBack}
+              className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm transition-all hover:bg-white/10"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </motion.button>
+          )}
+          
+          {/* Premium ParParty Branding */}
+          <div className="flex items-center gap-3">
+            <motion.div
+              className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-500/25"
+              animate={{ 
+                boxShadow: [
+                  '0 0 20px rgba(34, 211, 238, 0.25)',
+                  '0 0 30px rgba(34, 211, 238, 0.4)',
+                  '0 0 20px rgba(34, 211, 238, 0.25)'
+                ]
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
+            >
+              <span className="text-white font-bold">⛳</span>
+            </motion.div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-light text-white tracking-tight truncate">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="text-xs text-slate-400 font-mono truncate">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right side */}
+        <div className="relative flex items-center gap-3">
+          {rightAction}
+          
+          {onShare && (
+            <motion.button
+              onClick={onShare}
+              className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm transition-all hover:bg-white/10"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Share className="w-4 h-4 text-white" />
+            </motion.button>
+          )}
+          
+          {onMore && (
+            <motion.button
+              onClick={onMore}
+              className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm transition-all hover:bg-white/10"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <MoreHorizontal className="w-4 h-4 text-white" />
+            </motion.button>
           )}
         </div>
       </div>
-
-      {/* Right side */}
-      <div className="flex items-center gap-2">
-        {rightAction}
-        
-        {onShare && (
-          <motion.div
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onShare}
-              className="w-10 h-10 p-0 rounded-full hover:bg-green-100"
-            >
-              <Share className="w-4 h-4 text-green-700" />
-            </Button>
-          </motion.div>
-        )}
-        
-        {onMore && (
-          <motion.div
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.05 }}
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onMore}
-              className="w-10 h-10 p-0 rounded-full hover:bg-green-100"
-            >
-              <MoreHorizontal className="w-4 h-4 text-green-700" />
-            </Button>
-          </motion.div>
-        )}
-      </div>
+      
+      {/* Subtle glow effect */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/5 to-transparent blur-xl -z-10" />
     </div>
   );
 }

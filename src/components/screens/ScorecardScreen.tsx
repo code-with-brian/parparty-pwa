@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Trophy, Minus, Plus, Target } from 'lucide-react';
+import { Trophy, MapPin, Brain, Wind, Thermometer } from 'lucide-react';
+import { HoleNavigator } from '@/components/game/HoleNavigator';
+import { PartyScoreCard } from '@/components/game/PartyScoreCard';
+import { HoleMapView } from '@/components/game/HoleMapView';
+import { AICaddiePanel } from '@/components/game/AICaddiePanel';
+import { GPSRangefinder } from '@/components/game/GPSRangefinder';
+import { WeatherConditions } from '@/components/game/WeatherConditions';
 
 interface Player {
   _id: string;
@@ -27,7 +31,8 @@ interface ScorecardScreenProps {
 
 export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScreenProps) {
   const [selectedHole, setSelectedHole] = useState(1);
-  const [editingScore, setEditingScore] = useState<string | null>(null);
+  const [view, setView] = useState<'scoring' | 'caddie'>('scoring');
+  const [selectedClub, setSelectedClub] = useState<string | null>(null);
 
   // Create score lookup
   const scoresByPlayerAndHole = scores.reduce((acc, score) => {
@@ -36,214 +41,299 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
     return acc;
   }, {} as Record<string, number>);
 
-  const holes = Array.from({ length: 18 }, (_, i) => i + 1);
-
-  const ScoreInput = ({ playerId, currentScore }: { playerId: string; currentScore?: number }) => {
-    const [score, setScore] = useState(currentScore?.toString() || '');
-    const isEditing = editingScore === `${playerId}-${selectedHole}`;
-
-    const handleSubmit = () => {
-      const numScore = parseInt(score);
-      if (numScore >= 1 && numScore <= 20) {
-        onScoreUpdate(playerId, selectedHole, numScore);
-        setEditingScore(null);
-      }
-    };
-
-    if (isEditing) {
-      return (
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex items-center gap-2 bg-white rounded-lg p-2 shadow-sm"
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const newScore = Math.max(1, parseInt(score || '1') - 1);
-              setScore(newScore.toString());
-            }}
-            className="w-8 h-8 p-0 rounded-full"
-          >
-            <Minus className="w-3 h-3" />
-          </Button>
-          
-          <Input
-            type="number"
-            min="1"
-            max="20"
-            value={score}
-            onChange={(e) => setScore(e.target.value)}
-            onBlur={handleSubmit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSubmit();
-              if (e.key === 'Escape') setEditingScore(null);
-            }}
-            className="w-16 h-8 text-center text-lg font-bold border-0 shadow-none"
-            autoFocus
-          />
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const newScore = Math.min(20, parseInt(score || '1') + 1);
-              setScore(newScore.toString());
-            }}
-            className="w-8 h-8 p-0 rounded-full"
-          >
-            <Plus className="w-3 h-3" />
-          </Button>
-        </motion.div>
-      );
+  // Calculate completed holes for progress tracking
+  const holesCompleted = new Set<number>();
+  for (let hole = 1; hole <= 18; hole++) {
+    const allPlayersHaveScore = players.every(player => {
+      const key = `${player._id}-${hole}`;
+      return scoresByPlayerAndHole[key] !== undefined;
+    });
+    if (allPlayersHaveScore) {
+      holesCompleted.add(hole);
     }
+  }
 
-    return (
-      <motion.button
-        whileTap={{ scale: 0.95 }}
-        onClick={() => {
-          setScore(currentScore?.toString() || '4');
-          setEditingScore(`${playerId}-${selectedHole}`);
-        }}
-        className={`w-16 h-12 rounded-xl font-bold text-lg transition-all ${
-          currentScore 
-            ? currentScore <= 3 
-              ? 'bg-green-100 text-green-700 border-2 border-green-300' 
-              : currentScore === 4
-              ? 'bg-blue-100 text-blue-700 border-2 border-blue-300'
-              : 'bg-red-100 text-red-700 border-2 border-red-300'
-            : 'bg-gray-100 text-gray-400 border-2 border-dashed border-gray-300'
-        }`}
-      >
-        {currentScore || '-'}
-      </motion.button>
-    );
+  // Sort players by total strokes for ranking
+  const sortedPlayers = [...players].sort((a, b) => {
+    if (a.totalStrokes === b.totalStrokes) {
+      return b.holesPlayed - a.holesPlayed; // More holes played wins ties
+    }
+    return a.totalStrokes - b.totalStrokes;
+  });
+
+  // Mock data for golf intelligence components (in production, this would come from Convex)
+  const mockHoleData = {
+    number: selectedHole,
+    par: 4,
+    yardage: 385,
+    teePosition: { x: 50, y: 280 },
+    pinPosition: {
+      x: 350,
+      y: 50,
+      difficulty: 'medium' as const,
+      description: 'Back right, 15 yards from center'
+    },
+    fairwayPath: [
+      { x: 50, y: 280 },
+      { x: 120, y: 200 },
+      { x: 200, y: 120 },
+      { x: 280, y: 80 },
+      { x: 350, y: 50 }
+    ],
+    hazards: [
+      {
+        type: 'water' as const,
+        coordinates: { x: 180, y: 60, width: 80, height: 40 },
+        carryDistance: 210
+      },
+      {
+        type: 'bunker' as const,
+        coordinates: { x: 300, y: 30, width: 30, height: 25 },
+        carryDistance: 160
+      }
+    ],
+    greenContour: [
+      { x: 325, y: 30 },
+      { x: 375, y: 30 },
+      { x: 375, y: 70 },
+      { x: 325, y: 70 }
+    ]
+  };
+
+  const mockPlayerPosition = {
+    x: 120,
+    y: 200,
+    distanceToPin: 185,
+    club: selectedClub
+  };
+
+  const mockRangefinderTargets = [
+    { name: 'Pin', distance: 185, bearing: 45, type: 'pin' as const },
+    { name: 'Front', distance: 165, bearing: 45, type: 'front' as const },
+    { name: 'Middle', distance: 175, bearing: 45, type: 'middle' as const },
+    { name: 'Back', distance: 195, bearing: 45, type: 'back' as const },
+    { name: 'Water Carry', distance: 210, bearing: 48, type: 'hazard' as const },
+    { name: 'Layup Zone', distance: 140, bearing: 45, type: 'layup' as const }
+  ];
+
+  const mockWeatherData = {
+    temperature: 72,
+    humidity: 65,
+    windSpeed: 8,
+    windDirection: 225,
+    windGusts: 12,
+    pressure: 30.15,
+    visibility: 10,
+    conditions: 'partly-cloudy' as const,
+    uvIndex: 6,
+    dewPoint: 58
+  };
+
+  const mockPlayerStats = {
+    averageDriver: 280,
+    average7Iron: 155,
+    averageWedge: 90,
+    recentRounds: [78, 82, 76, 80],
+    strengths: ['Putting', 'Short Game'],
+    improvements: ['Driving Accuracy', 'Long Irons']
   };
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Hole Selector */}
-      <Card className="glass">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Target className="w-5 h-5 text-green-600" />
-            Select Hole
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-6 gap-2">
-            {holes.map((hole) => (
-              <motion.button
-                key={hole}
-                onClick={() => setSelectedHole(hole)}
-                whileTap={{ scale: 0.95 }}
-                className={`aspect-square rounded-xl font-semibold transition-all ${
-                  selectedHole === hole
-                    ? 'bg-green-600 text-white shadow-lg'
-                    : 'bg-white text-gray-700 border border-gray-200 hover:bg-green-50'
-                }`}
-              >
-                {hole}
-              </motion.button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Current Hole Scores */}
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Hole {selectedHole} Scores</span>
-            <div className="text-sm font-normal text-gray-500">
-              Tap to edit
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <AnimatePresence mode="wait">
-              {players.map((player, index) => {
-                const scoreKey = `${player._id}-${selectedHole}`;
-                const currentScore = scoresByPlayerAndHole[scoreKey];
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.01)_0%,transparent_70%)]" />
+      
+      <div className="relative space-y-6 pb-8">
+        {/* Slim Info Bar - Always Visible */}
+        <div className="pt-4 px-6">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-xl px-4 py-2.5"
+          >
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-4">
+                {/* Distance */}
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-cyan-400" />
+                  <span className="text-white font-medium">{mockPlayerPosition.distanceToPin}y</span>
+                </div>
                 
-                return (
-                  <motion.div
-                    key={player._id}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-center justify-between p-4 bg-white/60 rounded-xl border border-white/30"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
-                        {player.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900">{player.name}</div>
-                        <div className="text-sm text-gray-500">
-                          Total: {player.totalStrokes} ({player.holesPlayed} holes)
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <ScoreInput
-                      playerId={player._id}
-                      currentScore={currentScore}
-                    />
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </CardContent>
-      </Card>
+                {/* Weather */}
+                <div className="flex items-center gap-2">
+                  <Wind className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-300">{mockWeatherData.windSpeed}mph {mockWeatherData.windDirection < 90 ? 'N' : mockWeatherData.windDirection < 180 ? 'E' : mockWeatherData.windDirection < 270 ? 'S' : 'W'}</span>
+                </div>
+                
+                {/* Temperature */}
+                <div className="flex items-center gap-2">
+                  <Thermometer className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-300">{mockWeatherData.temperature}°F</span>
+                </div>
+              </div>
+              
+              {/* Hole Info */}
+              <div className="flex items-center gap-2 text-slate-400">
+                <span className="font-mono">Par {mockHoleData.par}</span>
+                <span className="text-slate-600">•</span>
+                <span className="font-mono">{mockHoleData.yardage}y</span>
+              </div>
+            </div>
+          </motion.div>
+        </div>
 
-      {/* Leaderboard */}
-      <Card className="glass">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-500" />
-            Live Leaderboard
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[...players]
-              .sort((a, b) => a.totalStrokes - b.totalStrokes)
-              .map((player, index) => (
-                <motion.div
-                  key={player._id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`flex items-center gap-3 p-3 rounded-xl ${
-                    index === 0 
-                      ? 'bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-200' 
-                      : 'bg-white/40'
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                    index === 0 ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-700'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium">{player.name}</div>
-                    <div className="text-sm text-gray-500">
-                      {player.holesPlayed} holes played
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xl font-bold">{player.totalStrokes}</div>
-                    <div className="text-sm text-gray-500">strokes</div>
-                  </div>
-                </motion.div>
-              ))}
+        {/* Simplified Tab Navigation */}
+        <div className="px-6">
+          <div className="flex gap-2 bg-white/5 rounded-2xl p-1">
+            <button
+              onClick={() => setView('scoring')}
+              className={`flex-1 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                view === 'scoring'
+                  ? 'bg-cyan-500/20 text-cyan-400 shadow-lg'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Trophy className="w-4 h-4" />
+                Scoring
+              </div>
+            </button>
+            <button
+              onClick={() => setView('caddie')}
+              className={`flex-1 px-4 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                view === 'caddie'
+                  ? 'bg-cyan-500/20 text-cyan-400 shadow-lg'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Brain className="w-4 h-4" />
+                AI Caddie
+              </div>
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {view === 'scoring' ? (
+          /* Primary Scoring View */
+          <div className="space-y-6">
+            {/* Hole Navigation */}
+            <div className="px-6">
+              <HoleNavigator
+                currentHole={selectedHole}
+                onHoleChange={setSelectedHole}
+                holesCompleted={holesCompleted}
+              />
+            </div>
+
+            {/* Player Scoring Cards */}
+            <div className="px-6">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={selectedHole}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.4, staggerChildren: 0.1 }}
+                  className="space-y-4"
+                >
+                  {sortedPlayers.map((player, index) => {
+                    const scoreKey = `${player._id}-${selectedHole}`;
+                    const currentScore = scoresByPlayerAndHole[scoreKey];
+                    
+                    return (
+                      <motion.div
+                        key={player._id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <PartyScoreCard
+                          player={player}
+                          currentHole={selectedHole}
+                          currentScore={currentScore}
+                          onScoreUpdate={onScoreUpdate}
+                          rank={index + 1}
+                          isLeader={index === 0}
+                        />
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </div>
+        ) : (
+          /* AI Caddie View */
+          <div className="space-y-6">
+            {/* Hole Navigation */}
+            <div className="px-6">
+              <HoleNavigator
+                currentHole={selectedHole}
+                onHoleChange={setSelectedHole}
+                holesCompleted={holesCompleted}
+              />
+            </div>
+
+            {/* Weather Conditions - Compact */}
+            <div className="px-6">
+              <WeatherConditions weather={mockWeatherData} compact={true} showPlayabilityIndex={false} />
+            </div>
+
+            {/* AI Caddie Intelligence */}
+            <div className="px-6 grid grid-cols-1 gap-6">
+              {/* GPS Rangefinder - Simplified */}
+              <GPSRangefinder
+                currentPosition={{ lat: 40.7589, lng: -73.9851 }}
+                targets={mockRangefinderTargets}
+                selectedTarget="Pin"
+                onTargetSelect={(target) => console.log('Selected target:', target)}
+                accuracy="high"
+              />
+
+              {/* AI Caddie Panel - Main Feature */}
+              <AICaddiePanel
+                holeNumber={selectedHole}
+                par={mockHoleData.par}
+                distanceToPin={mockPlayerPosition.distanceToPin}
+                conditions={{
+                  windSpeed: mockWeatherData.windSpeed,
+                  windDirection: 'SW',
+                  temperature: mockWeatherData.temperature,
+                  humidity: mockWeatherData.humidity,
+                  greenSpeed: 'medium',
+                  firmness: 'medium'
+                }}
+                playerStats={mockPlayerStats}
+                pinDifficulty={mockHoleData.pinPosition.difficulty}
+                hazards={mockHoleData.hazards.map(h => ({
+                  type: h.type,
+                  distance: h.carryDistance || 0,
+                  carry: h.carryDistance || 0
+                }))}
+                onClubSelect={setSelectedClub}
+              />
+
+              {/* Optional: Hole Map for Context */}
+              <HoleMapView
+                holeData={mockHoleData}
+                playerPosition={mockPlayerPosition}
+                onPositionSelect={(position) => console.log('Selected position:', position)}
+              />
+            </div>
+
+            {/* Quick Back to Scoring */}
+            <div className="px-6">
+              <button
+                onClick={() => setView('scoring')}
+                className="w-full py-3 bg-white/5 border border-white/10 rounded-2xl text-white font-medium hover:bg-white/10 transition-all"
+              >
+                ← Back to Scoring
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -26,11 +26,11 @@ export function GolfLoader({ size = 'md', color = 'green', text }: GolfLoaderPro
         
         {/* Golf ball */}
         <motion.div
-          className={`absolute left-1/2 transform -translate-x-1/2 bg-white rounded-full shadow-lg`}
+          className={`absolute left-1/2 transform -translate-x-1/2 bg-slate-200 rounded-full shadow-lg`}
           style={{ 
             width: ball, 
             height: ball,
-            background: `radial-gradient(circle at 30% 30%, #ffffff, #f0f0f0)`
+            background: `radial-gradient(circle at 30% 30%, #e2e8f0, #cbd5e1)`
           }}
           initial={{ y: 0 }}
           animate={{ 
@@ -76,7 +76,7 @@ export function GolfLoader({ size = 'md', color = 'green', text }: GolfLoaderPro
       
       {text && (
         <motion.p 
-          className={`text-${color}-600 font-medium text-sm`}
+          className="text-green-400 font-medium text-sm"
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
@@ -96,7 +96,7 @@ export function GolfLoaderInline({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' })
 
   return (
     <motion.div
-      className="inline-block bg-white rounded-full shadow-sm relative"
+      className="inline-block bg-slate-200 rounded-full shadow-sm relative"
       style={{ 
         width: sizes[size], 
         height: sizes[size],
