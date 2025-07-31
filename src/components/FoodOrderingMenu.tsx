@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { paymentProcessor, type PaymentRequest } from '@/utils/paymentProcessor';
+import { paymentProcessor } from '@/utils/paymentProcessor';
 import { notificationManager } from '@/utils/notificationManager';
+import { PaymentForm } from './PaymentForm';
 import { 
   ShoppingCart, 
   Plus, 
@@ -61,6 +62,7 @@ export default function FoodOrderingMenu({
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingOrderId, setPendingOrderId] = useState<Id<"foodOrders"> | null>(null);
 
   // Get menu items
   const menuItems = useQuery(api.foodOrders.getMenuItems, { courseId });
@@ -145,52 +147,59 @@ export default function FoodOrderingMenu({
         specialInstructions: specialInstructions || undefined,
       });
 
-      // Process payment
-      const totalAmount = getTotalPrice();
-      const paymentRequest: PaymentRequest = {
-        amount: Math.round(totalAmount * 100), // Convert to cents
-        currency: 'USD',
-        description: `F&B Order: ${orderItems.map(item => `${item.quantity}x ${item.name}`).join(', ')}`,
-        orderId: orderId,
-      };
-
-      const paymentResult = await paymentProcessor.processPayment(paymentRequest);
-
-      if (paymentResult.success && paymentResult.paymentId) {
-        // Update order with payment information
-        await processPayment({
-          orderId,
-          paymentId: paymentResult.paymentId,
-        });
-
-        // Show success notification
-        await notificationManager.notifyOrderStatusUpdate(
-          'confirmed',
-          orderItems.map(item => `${item.quantity}x ${item.name}`),
-          deliveryLocation === "hole" && holeNumber 
-            ? `Hole ${holeNumber}` 
-            : deliveryLocation === "clubhouse" 
-            ? "Clubhouse" 
-            : "Golf Cart"
-        );
-
-        // Clear cart and close
-        setCart([]);
-        onOrderPlaced?.();
-        onClose();
-      } else if (paymentResult.requiresAction) {
-        // Handle 3D Secure or other payment actions
-        setPaymentError('Payment requires additional verification. Please try again.');
-      } else {
-        // Payment failed
-        setPaymentError(paymentResult.error || 'Payment failed. Please try again.');
-      }
+      // Store the order ID and show payment modal
+      setPendingOrderId(orderId);
+      setShowPaymentModal(true);
     } catch (error) {
       console.error('Failed to place order:', error);
       setPaymentError('Failed to place order. Please try again.');
     } finally {
       setIsPlacingOrder(false);
     }
+  };
+
+  const handlePaymentSuccess = async (paymentId: string) => {
+    if (!pendingOrderId) return;
+
+    try {
+      // Update order with payment information
+      await processPayment({
+        orderId: pendingOrderId,
+        paymentId: paymentId,
+      });
+
+      // Show success notification
+      const orderItems = cart.map(item => `${item.quantity}x ${item.name}`);
+      await notificationManager.notifyOrderStatusUpdate(
+        'confirmed',
+        orderItems,
+        deliveryLocation === "hole" && holeNumber 
+          ? `Hole ${holeNumber}` 
+          : deliveryLocation === "clubhouse" 
+          ? "Clubhouse" 
+          : "Golf Cart"
+      );
+
+      // Clear cart and close
+      setCart([]);
+      setShowPaymentModal(false);
+      setPendingOrderId(null);
+      onOrderPlaced?.();
+      onClose();
+    } catch (error) {
+      console.error('Failed to process payment:', error);
+      setPaymentError('Failed to process payment. Please try again.');
+    }
+  };
+
+  const handlePaymentError = (error: string) => {
+    setPaymentError(error);
+    setShowPaymentModal(false);
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPaymentModal(false);
+    setPendingOrderId(null);
   };
 
   if (!menuItems) {
@@ -471,6 +480,21 @@ export default function FoodOrderingMenu({
           </div>
         </div>
       </CardContent>
+
+      {/* Payment Modal */}
+      {showPaymentModal && pendingOrderId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <PaymentForm
+              orderId={pendingOrderId}
+              amount={Math.round(getTotalPrice() * 100)} // Convert to cents
+              onSuccess={handlePaymentSuccess}
+              onError={handlePaymentError}
+              onCancel={handlePaymentCancel}
+            />
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

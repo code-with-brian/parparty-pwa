@@ -1,7 +1,13 @@
 /**
  * Payment processing utilities for F&B orders
- * This is a simplified implementation for MVP - in production would integrate with Stripe
+ * Integrates with Stripe via Convex backend
  */
+
+import { loadStripe, Stripe, StripeElements, StripeCardElement } from '@stripe/stripe-js';
+import type { Id } from '../../convex/_generated/dataModel';
+
+// Initialize Stripe with publishable key
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_...');
 
 export interface PaymentMethod {
   id: string;
@@ -10,6 +16,7 @@ export interface PaymentMethod {
   brand?: string;
   expiryMonth?: number;
   expiryYear?: number;
+  isDefault?: boolean;
 }
 
 export interface PaymentResult {
@@ -17,20 +24,25 @@ export interface PaymentResult {
   paymentId?: string;
   error?: string;
   requiresAction?: boolean;
-  actionUrl?: string;
+  clientSecret?: string;
 }
 
 export interface PaymentRequest {
-  amount: number; // in cents
-  currency: string;
-  description: string;
-  orderId: string;
-  customerEmail?: string;
-  paymentMethod?: PaymentMethod;
+  orderId: Id<"foodOrders">;
+  paymentMethodId?: string;
+  savePaymentMethod?: boolean;
+}
+
+export interface RefundRequest {
+  paymentId: Id<"payments">;
+  amount?: number; // in cents, if partial refund
+  reason: 'duplicate' | 'fraudulent' | 'requested_by_customer' | 'order_canceled' | 'other';
+  notes?: string;
 }
 
 class PaymentProcessor {
   private static instance: PaymentProcessor;
+  private stripe: Stripe | null = null;
   private isInitialized = false;
 
   static getInstance(): PaymentProcessor {
@@ -43,99 +55,199 @@ class PaymentProcessor {
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    // In production, this would initialize Stripe or other payment provider
-    // For MVP, we'll simulate initialization
-    await new Promise(resolve => setTimeout(resolve, 100));
-    this.isInitialized = true;
+    try {
+      this.stripe = await stripePromise;
+      if (!this.stripe) {
+        throw new Error('Failed to initialize Stripe');
+      }
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Stripe initialization failed:', error);
+      throw new Error('Payment system initialization failed');
+    }
   }
 
-  async processPayment(request: PaymentRequest): Promise<PaymentResult> {
+  async createPaymentIntent(
+    convexClient: any,
+    request: PaymentRequest
+  ): Promise<PaymentResult> {
     if (!this.isInitialized) {
       await this.initialize();
     }
 
     try {
-      // Simulate payment processing delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For MVP, simulate successful payment
-      // In production, this would make actual API calls to payment provider
-      const paymentId = `pay_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-      // Simulate occasional failures for testing
-      if (Math.random() < 0.05) { // 5% failure rate
-        return {
-          success: false,
-          error: 'Payment declined. Please try a different payment method.',
-        };
-      }
-
-      // Simulate 3D Secure requirement occasionally
-      if (Math.random() < 0.1) { // 10% require action
-        return {
-          success: false,
-          requiresAction: true,
-          actionUrl: `https://payment-provider.com/3ds/${paymentId}`,
-          paymentId,
-        };
-      }
+      const result = await convexClient.action("payments:createPaymentIntent", {
+        orderId: request.orderId,
+        paymentMethodId: request.paymentMethodId,
+        savePaymentMethod: request.savePaymentMethod,
+      });
 
       return {
-        success: true,
-        paymentId,
+        success: result.status === "succeeded",
+        paymentId: result.paymentId,
+        requiresAction: result.requiresAction,
+        clientSecret: result.clientSecret,
       };
     } catch (error) {
-      console.error('Payment processing error:', error);
+      console.error('Payment intent creation failed:', error);
       return {
         success: false,
-        error: 'Payment processing failed. Please try again.',
+        error: error instanceof Error ? error.message : 'Payment processing failed',
       };
     }
   }
 
-  async refundPayment(paymentId: string, amount?: number): Promise<PaymentResult> {
+  async confirmPayment(
+    clientSecret: string,
+    paymentElement?: StripeElements | StripeCardElement
+  ): Promise<PaymentResult> {
+    if (!this.stripe) {
+      throw new Error('Stripe not initialized');
+    }
+
     try {
-      // Simulate refund processing
-      await new Promise(resolve => setTimeout(resolve, 500));
+      let result;
+      
+      if (paymentElement) {
+        // Confirm with payment element
+        result = await this.stripe.confirmPayment({
+          elements: paymentElement as StripeElements,
+          confirmParams: {
+            return_url: window.location.origin + '/payment/success',
+          },
+          redirect: 'if_required',
+        });
+      } else {
+        // Confirm with client secret only (for saved payment methods)
+        result = await this.stripe.confirmPayment({
+          clientSecret,
+          redirect: 'if_required',
+        });
+      }
 
-      const refundId = `ref_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      if (result.error) {
+        return {
+          success: false,
+          error: result.error.message || 'Payment confirmation failed',
+        };
+      }
 
       return {
-        success: true,
-        paymentId: refundId,
+        success: result.paymentIntent?.status === 'succeeded',
+        paymentId: result.paymentIntent?.id,
+        requiresAction: result.paymentIntent?.status === 'requires_action',
       };
     } catch (error) {
-      console.error('Refund processing error:', error);
+      console.error('Payment confirmation failed:', error);
       return {
         success: false,
-        error: 'Refund processing failed. Please contact support.',
+        error: error instanceof Error ? error.message : 'Payment confirmation failed',
       };
     }
   }
 
-  async getPaymentMethods(): Promise<PaymentMethod[]> {
-    // In production, this would fetch saved payment methods from the backend
-    // For MVP, return mock data
-    return [
-      {
-        id: 'pm_card_visa',
+  async createPaymentMethod(
+    convexClient: any,
+    cardElement: StripeCardElement,
+    userId?: Id<"users">,
+    guestId?: Id<"guests">,
+    setAsDefault = false
+  ): Promise<{ paymentMethod?: PaymentMethod; error?: string }> {
+    if (!this.stripe) {
+      throw new Error('Stripe not initialized');
+    }
+
+    try {
+      // Create payment method with Stripe
+      const { error, paymentMethod } = await this.stripe.createPaymentMethod({
         type: 'card',
-        last4: '4242',
-        brand: 'visa',
-        expiryMonth: 12,
-        expiryYear: 2025,
-      },
-      {
-        id: 'pm_apple_pay',
-        type: 'apple_pay',
-      },
-      {
-        id: 'pm_google_pay',
-        type: 'google_pay',
-      },
-    ];
+        card: cardElement,
+      });
+
+      if (error || !paymentMethod) {
+        return { error: error?.message || 'Failed to create payment method' };
+      }
+
+      // Save payment method via Convex
+      const savedMethod = await convexClient.action("payments:createPaymentMethod", {
+        userId,
+        guestId,
+        paymentMethodId: paymentMethod.id,
+        setAsDefault,
+      });
+
+      return { paymentMethod: savedMethod };
+    } catch (error) {
+      console.error('Payment method creation failed:', error);
+      return { error: error instanceof Error ? error.message : 'Payment method creation failed' };
+    }
   }
 
+  async getPaymentMethods(
+    convexClient: any,
+    userId?: Id<"users">,
+    guestId?: Id<"guests">
+  ): Promise<PaymentMethod[]> {
+    try {
+      return await convexClient.query("payments:getPaymentMethods", {
+        userId,
+        guestId,
+      });
+    } catch (error) {
+      console.error('Failed to fetch payment methods:', error);
+      return [];
+    }
+  }
+
+  async processRefund(
+    convexClient: any,
+    request: RefundRequest
+  ): Promise<PaymentResult> {
+    try {
+      const result = await convexClient.action("payments:processRefund", {
+        paymentId: request.paymentId,
+        amount: request.amount,
+        reason: request.reason,
+        metadata: {
+          initiatedBy: 'user', // Could be 'admin', 'system', etc.
+          notes: request.notes,
+        },
+      });
+
+      return {
+        success: result.status === 'succeeded',
+        paymentId: result.refundId,
+      };
+    } catch (error) {
+      console.error('Refund processing failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Refund processing failed',
+      };
+    }
+  }
+
+  async getPaymentAnalytics(
+    convexClient: any,
+    courseId?: Id<"courses">,
+    gameId?: Id<"games">,
+    startDate?: string,
+    endDate?: string
+  ) {
+    try {
+      return await convexClient.query("payments:getPaymentAnalytics", {
+        courseId,
+        gameId,
+        startDate,
+        endDate,
+      });
+    } catch (error) {
+      console.error('Failed to fetch payment analytics:', error);
+      return [];
+    }
+  }
+
+  // Utility functions
   formatAmount(amountInCents: number, currency = 'USD'): string {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -145,6 +257,60 @@ class PaymentProcessor {
 
   validateAmount(amount: number): boolean {
     return amount > 0 && amount <= 999999; // Max $9,999.99
+  }
+
+  getCardBrandIcon(brand?: string): string {
+    switch (brand?.toLowerCase()) {
+      case 'visa':
+        return '💳';
+      case 'mastercard':
+        return '💳';
+      case 'amex':
+      case 'american_express':
+        return '💳';
+      case 'discover':
+        return '💳';
+      default:
+        return '💳';
+    }
+  }
+
+  formatCardDisplay(paymentMethod: PaymentMethod): string {
+    if (paymentMethod.type === 'apple_pay') {
+      return '🍎 Apple Pay';
+    }
+    if (paymentMethod.type === 'google_pay') {
+      return '🟢 Google Pay';
+    }
+    if (paymentMethod.last4 && paymentMethod.brand) {
+      return `${this.getCardBrandIcon(paymentMethod.brand)} •••• ${paymentMethod.last4}`;
+    }
+    return 'Card';
+  }
+
+  // Error handling helpers
+  getErrorMessage(error: any): string {
+    if (typeof error === 'string') return error;
+    if (error?.message) return error.message;
+    if (error?.code) {
+      switch (error.code) {
+        case 'card_declined':
+          return 'Your card was declined. Please try a different payment method.';
+        case 'insufficient_funds':
+          return 'Insufficient funds. Please try a different payment method.';
+        case 'expired_card':
+          return 'Your card has expired. Please try a different payment method.';
+        case 'incorrect_cvc':
+          return 'Your card\'s security code is incorrect.';
+        case 'processing_error':
+          return 'An error occurred while processing your payment. Please try again.';
+        case 'rate_limit':
+          return 'Too many requests. Please wait a moment and try again.';
+        default:
+          return 'An unexpected error occurred. Please try again.';
+      }
+    }
+    return 'An unexpected error occurred. Please try again.';
   }
 }
 

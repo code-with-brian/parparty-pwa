@@ -288,4 +288,112 @@ export default defineSchema({
     .index("by_user_read", ["userId", "read"])
     .index("by_guest_read", ["guestId", "read"])
     .index("by_created", ["createdAt"]),
+
+  // Payment methods for users
+  paymentMethods: defineTable({
+    userId: v.optional(v.id("users")),
+    guestId: v.optional(v.id("guests")),
+    stripePaymentMethodId: v.string(),
+    type: v.union(v.literal("card"), v.literal("apple_pay"), v.literal("google_pay")),
+    last4: v.optional(v.string()),
+    brand: v.optional(v.string()),
+    expiryMonth: v.optional(v.number()),
+    expiryYear: v.optional(v.number()),
+    isDefault: v.boolean(),
+    isActive: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_guest", ["guestId"])
+    .index("by_stripe_id", ["stripePaymentMethodId"])
+    .index("by_user_default", ["userId", "isDefault"])
+    .index("by_guest_default", ["guestId", "isDefault"]),
+
+  // Payment transactions
+  payments: defineTable({
+    orderId: v.id("foodOrders"),
+    playerId: v.id("players"),
+    gameId: v.id("games"),
+    stripePaymentIntentId: v.string(),
+    stripePaymentMethodId: v.optional(v.string()),
+    amount: v.number(), // in cents
+    currency: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("processing"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+      v.literal("canceled"),
+      v.literal("requires_action")
+    ),
+    failureReason: v.optional(v.string()),
+    metadata: v.optional(v.object({
+      courseId: v.optional(v.id("courses")),
+      deliveryLocation: v.optional(v.string()),
+      holeNumber: v.optional(v.number()),
+    })),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_order", ["orderId"])
+    .index("by_player", ["playerId"])
+    .index("by_game", ["gameId"])
+    .index("by_stripe_intent", ["stripePaymentIntentId"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  // Payment refunds
+  refunds: defineTable({
+    paymentId: v.id("payments"),
+    orderId: v.id("foodOrders"),
+    stripeRefundId: v.string(),
+    amount: v.number(), // in cents
+    reason: v.union(
+      v.literal("duplicate"),
+      v.literal("fraudulent"),
+      v.literal("requested_by_customer"),
+      v.literal("order_canceled"),
+      v.literal("other")
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("succeeded"),
+      v.literal("failed"),
+      v.literal("canceled")
+    ),
+    failureReason: v.optional(v.string()),
+    metadata: v.optional(v.object({
+      initiatedBy: v.optional(v.string()),
+      notes: v.optional(v.string()),
+    })),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_payment", ["paymentId"])
+    .index("by_order", ["orderId"])
+    .index("by_stripe_refund", ["stripeRefundId"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
+
+  // Payment analytics
+  paymentAnalytics: defineTable({
+    courseId: v.optional(v.id("courses")),
+    gameId: v.optional(v.id("games")),
+    date: v.string(), // YYYY-MM-DD format
+    totalTransactions: v.number(),
+    totalAmount: v.number(), // in cents
+    successfulTransactions: v.number(),
+    failedTransactions: v.number(),
+    refundedTransactions: v.number(),
+    refundedAmount: v.number(), // in cents
+    averageTransactionAmount: v.number(), // in cents
+    paymentMethodBreakdown: v.object({
+      card: v.number(),
+      applePay: v.number(),
+      googlePay: v.number(),
+    }),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_course", ["courseId"])
+    .index("by_game", ["gameId"])
+    .index("by_date", ["date"])
+    .index("by_course_date", ["courseId", "date"]),
 });

@@ -272,3 +272,11 @@ export const cancelOrder = mutation({
     return args.orderId;
   },
 });
+
+// Get a specific order (helper for payments)
+export const getOrder = query({
+  args: { orderId: v.id("foodOrders") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.orderId);
+  },
+});
