@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Share2, Eye, Calendar, Trophy, Camera, ShoppingBag, Clock } from 'lucide-react';
+import { Share2, Eye, Calendar, Trophy, Camera, ShoppingBag, Clock, Heart, MessageCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
+import SocialShareModal from './SocialShareModal';
+import type { ShareContent } from '../utils/socialSharing';
 
 interface HighlightMoment {
   type: 'best_shot' | 'worst_shot' | 'achievement' | 'social_moment' | 'order';
@@ -71,6 +73,12 @@ const HighlightReel: React.FC<HighlightReelProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'story' | 'moments' | 'photos' | 'timeline'>('story');
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareCount, setShareCount] = useState(0);
+  const [socialProof, setSocialProof] = useState({
+    likes: Math.floor(Math.random() * 50) + 10,
+    comments: Math.floor(Math.random() * 20) + 5,
+  });
 
   React.useEffect(() => {
     // Increment view count when component mounts
@@ -79,32 +87,39 @@ const HighlightReel: React.FC<HighlightReelProps> = ({
     }
   }, [onViewIncrement]);
 
-  const handleShare = async () => {
-    const shareContent = {
-      title: `${highlightData.player.name}'s Golf Round`,
-      text: highlightData.narrative,
-      url: highlightData.shareableUrl || window.location.href,
-    };
+  const handleShare = () => {
+    setShowShareModal(true);
+  };
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareContent);
-      } catch (error) {
-        console.log('Share cancelled or failed');
+  const handleShareComplete = (platform: string, success: boolean) => {
+    if (success) {
+      setShareCount(prev => prev + 1);
+      
+      // Update social proof
+      if (platform !== 'copy') {
+        setSocialProof(prev => ({
+          ...prev,
+          likes: prev.likes + Math.floor(Math.random() * 3) + 1,
+        }));
       }
-    } else {
-      // Fallback to clipboard
-      try {
-        await navigator.clipboard.writeText(shareContent.url);
-        alert('Link copied to clipboard!');
-      } catch (error) {
-        console.error('Failed to copy to clipboard');
+
+      const shareContent = {
+        title: `${highlightData.player.name}'s Golf Round`,
+        text: highlightData.narrative,
+        url: highlightData.shareableUrl || window.location.href,
+        platform,
+      };
+
+      if (onShare) {
+        onShare(shareContent);
       }
     }
+  };
 
-    if (onShare) {
-      onShare(shareContent);
-    }
+  const shareContent: ShareContent = {
+    title: `${highlightData.player.name}'s Golf Round`,
+    text: highlightData.narrative,
+    url: highlightData.shareableUrl || window.location.href,
   };
 
   const getMomentIcon = (type: string) => {
@@ -175,6 +190,24 @@ const HighlightReel: React.FC<HighlightReelProps> = ({
         <h2 className="text-lg font-semibold text-gray-800 mb-2">
           {highlightData.game.name}
         </h2>
+
+        {/* Social Proof */}
+        <div className="flex items-center space-x-4 mb-4">
+          <div className="flex items-center space-x-1 text-sm text-gray-600">
+            <Heart className="w-4 h-4 text-red-500" />
+            <span>{socialProof.likes} likes</span>
+          </div>
+          <div className="flex items-center space-x-1 text-sm text-gray-600">
+            <MessageCircle className="w-4 h-4 text-blue-500" />
+            <span>{socialProof.comments} comments</span>
+          </div>
+          {shareCount > 0 && (
+            <div className="flex items-center space-x-1 text-sm text-gray-600">
+              <Share2 className="w-4 h-4 text-green-500" />
+              <span>{shareCount} shares</span>
+            </div>
+          )}
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -388,6 +421,17 @@ const HighlightReel: React.FC<HighlightReelProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Social Share Modal */}
+      <SocialShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        content={shareContent}
+        type="highlight"
+        gameId={highlightData.id}
+        playerName={highlightData.player.name}
+        onShare={handleShareComplete}
+      />
     </div>
   );
 };

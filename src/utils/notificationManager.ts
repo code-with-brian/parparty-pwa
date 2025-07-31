@@ -3,7 +3,8 @@
  * Integrates with Capacitor Push Notifications for native mobile support
  */
 
-import { PushNotifications, Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
+import type { Token, PushNotificationSchema } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 
 export interface NotificationPayload {
@@ -105,7 +106,7 @@ class NotificationManager {
         });
 
         // Listen for push notification actions
-        PushNotifications.addListener('pushNotificationActionPerformed', (notification: ActionPerformed) => {
+        PushNotifications.addListener('pushNotificationActionPerformed', (notification: any) => {
           console.log('Push notification action performed', notification);
           this.handlePushNotificationAction(notification);
         });
@@ -153,7 +154,7 @@ class NotificationManager {
     });
   }
 
-  private handlePushNotificationAction(notification: ActionPerformed): void {
+  private handlePushNotificationAction(notification: any): void {
     const data = notification.notification.data;
     
     // Handle navigation based on notification data

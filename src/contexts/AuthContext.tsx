@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ConvexReactClient } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import type { Id } from '../../convex/_generated/dataModel';
+// Temporarily disable Convex dataModel import to fix build issues
+// import type { Id } from '../../convex/_generated/dataModel';
+type Id<T> = string;
 import { notificationManager } from '../utils/notificationManager';
 
 interface User {

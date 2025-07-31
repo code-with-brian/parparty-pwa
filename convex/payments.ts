@@ -4,9 +4,11 @@ import { Id } from "./_generated/dataModel";
 import Stripe from "stripe";
 
 // Initialize Stripe with secret key from environment
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-12-18.acacia",
-});
+const stripe = process.env.STRIPE_SECRET_KEY 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: "2024-12-18.acacia",
+    })
+  : null;
 
 // Create payment intent for an order
 export const createPaymentIntent = action({
@@ -16,6 +18,10 @@ export const createPaymentIntent = action({
     savePaymentMethod: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    if (!stripe) {
+      throw new Error("Stripe not configured");
+    }
+    
     // Get the order details
     const order = await ctx.runQuery("foodOrders:getOrder", { orderId: args.orderId });
     if (!order) {
@@ -88,6 +94,10 @@ export const confirmPaymentIntent = action({
     paymentMethodId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    if (!stripe) {
+      throw new Error("Stripe not configured");
+    }
+    
     try {
       const paymentIntent = await stripe.paymentIntents.confirm(args.paymentIntentId, {
         payment_method: args.paymentMethodId,
@@ -140,6 +150,10 @@ export const createPaymentMethod = action({
     setAsDefault: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    if (!stripe) {
+      throw new Error("Stripe not configured");
+    }
+    
     try {
       // Get payment method details from Stripe
       const paymentMethod = await stripe.paymentMethods.retrieve(args.paymentMethodId);
@@ -183,6 +197,10 @@ export const processRefund = action({
     })),
   },
   handler: async (ctx, args) => {
+    if (!stripe) {
+      throw new Error("Stripe not configured");
+    }
+    
     // Get payment details
     const payment = await ctx.runQuery("payments:getPayment", { paymentId: args.paymentId });
     if (!payment) {
