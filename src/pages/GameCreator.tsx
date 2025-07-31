@@ -11,9 +11,50 @@ import QRCodeLib from 'qrcode';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 
+// Fun game name generation
+const generateGameName = () => {
+  const adjectives = [
+    'Epic', 'Legendary', 'Wild', 'Awesome', 'Ultimate', 'Super', 
+    'Amazing', 'Fantastic', 'Incredible', 'Spectacular', 'Magical',
+    'Thunder', 'Lightning', 'Power', 'Turbo', 'Mega', 'Ultra'
+  ];
+  
+  const nouns = [
+    'Eagles', 'Birdies', 'Aces', 'Tigers', 'Sharks', 'Champions',
+    'Legends', 'Masters', 'Pros', 'Heroes', 'Warriors', 'Ninjas',
+    'Bombers', 'Crushers', 'Swingers', 'Putters', 'Drivers', 'Irons'
+  ];
+  
+  const times = [
+    'Morning', 'Afternoon', 'Evening', 'Twilight', 'Sunrise', 'Sunset',
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Weekend'
+  ];
+  
+  // Get current day and time
+  const now = new Date();
+  const hour = now.getHours();
+  const dayIndex = now.getDay();
+  
+  let timeOfDay = 'Round';
+  if (hour < 12) timeOfDay = times[0]; // Morning
+  else if (hour < 17) timeOfDay = times[1]; // Afternoon
+  else if (hour < 20) timeOfDay = times[2]; // Evening
+  else timeOfDay = times[3]; // Twilight
+  
+  // Sometimes use day of week instead
+  if (Math.random() > 0.5) {
+    timeOfDay = times[6 + dayIndex] || 'Weekend';
+  }
+  
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  
+  return `${adjective} ${timeOfDay} ${noun}`;
+};
+
 export default function GameCreator() {
   const [gameName, setGameName] = useState('');
-  const [userName, setUserName] = useState('Test User');
+  const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
@@ -23,6 +64,7 @@ export default function GameCreator() {
   const navigate = useNavigate();
   const createGame = useMutation(api.games.createGame);
   const createTestUser = useMutation(api.users.createTestUser);
+  const addPlayerToGame = useMutation(api.games.addPlayerToGame);
   
   // Get live game state to show players joining
   const gameState = useQuery(
@@ -31,8 +73,8 @@ export default function GameCreator() {
   );
 
   const handleCreateGame = async () => {
-    if (!gameName.trim()) {
-      setError('Please enter a game name');
+    if (!userName.trim()) {
+      setError('Please enter your name');
       return;
     }
 
@@ -40,15 +82,26 @@ export default function GameCreator() {
       setLoading(true);
       setError(null);
 
+      // Generate a fun game name
+      const generatedGameName = generateGameName();
+      setGameName(generatedGameName);
+
       // Create a test user first
       const userId = await createTestUser({
         name: userName.trim()
       });
 
       const gameId = await createGame({
-        name: gameName.trim(),
+        name: generatedGameName,
         createdBy: userId,
         format: 'stroke'
+      });
+
+      // Automatically add the creator as the first player
+      await addPlayerToGame({
+        gameId: gameId,
+        name: userName.trim(),
+        userId: userId
       });
 
       setCreatedGameId(gameId);
@@ -112,7 +165,8 @@ export default function GameCreator() {
 
   const handleJoinGame = () => {
     if (createdGameId) {
-      navigate(`/join/${createdGameId}`);
+      // Navigate directly to the game since the creator is already a player
+      navigate(`/game/${createdGameId}`);
     }
   };
 
@@ -122,7 +176,7 @@ export default function GameCreator() {
       <Card className="w-full max-w-md glass-party">
         <CardHeader>
           <CardTitle className="text-center text-2xl font-bold text-gradient">
-            🏌️‍♂️ Create Test Game
+            🏌️‍♂️ Start New Game
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -141,7 +195,8 @@ export default function GameCreator() {
             >
               {/* Success Message */}
               <div className="text-green-400 text-sm bg-green-500/20 p-3 rounded-lg border border-green-500/30">
-                🎉 Game created successfully!
+                <div className="text-lg font-semibold mb-1">🎉 Game created successfully!</div>
+                <div className="text-green-300">{gameName}</div>
               </div>
 
               {/* QR Code Display */}
@@ -227,7 +282,7 @@ export default function GameCreator() {
                   onClick={handleJoinGame}
                   className="w-full h-12 gradient-party-button text-white hover:scale-105 text-lg font-semibold transition-all duration-300"
                 >
-                  Join Game Now
+                  Start Playing
                 </Button>
                 
                 <Button 
@@ -245,23 +300,32 @@ export default function GameCreator() {
             </motion.div>
           ) : (
             <>
-              <Input
-                placeholder="Enter game name"
-                value={gameName}
-                onChange={(e) => setGameName(e.target.value)}
-                disabled={loading}
-              />
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-medium text-white mb-2">
+                  Let's start a new round! 🏌️‍♂️
+                </h3>
+                <p className="text-sm text-slate-300">
+                  Enter your name to create a game
+                </p>
+              </div>
 
               <Input
                 placeholder="Your name"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 disabled={loading}
+                className="text-center text-lg"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && userName.trim()) {
+                    handleCreateGame();
+                  }
+                }}
               />
 
               <Button 
                 onClick={handleCreateGame}
-                disabled={loading || !gameName.trim()}
+                disabled={loading || !userName.trim()}
                 className="w-full gradient-party-button text-white hover:scale-105 transition-all duration-300"
               >
                 {loading ? 'Creating...' : 'Create Game'}

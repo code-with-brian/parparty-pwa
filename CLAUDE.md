@@ -2,140 +2,190 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Essential Development Commands
 
-ParParty MVP is a social-first, event-centric golf application built with React, TypeScript, Vite, and Convex. It transforms golf rounds into live, memorable experiences with real-time features for players, sponsors, and courses.
-
-## Development Commands
-
-### Essential Commands
 ```bash
-# Development
-npm run dev          # Start Vite dev server (http://localhost:5173)
+# Development server (runs on port 5173-5176 depending on availability)
+npm run dev
 
-# Building
-npm run build        # TypeScript check + Vite build
-npm run preview      # Preview production build
+# Production build
+npm run build
 
-# Testing
-npm test             # Run tests in watch mode (Vitest)
-npm run test:run     # Run tests once
-npm run test:ui      # Open Vitest UI
+# Run tests
+npm test              # Watch mode
+npm run test:run      # Run once without watch mode
+npm run test:ui       # Open Vitest UI
 
-# Code Quality
-npm run lint         # Run ESLint
-```
+# Linting
+npm run lint
 
-### Mobile Development (Capacitor)
-```bash
-npx cap sync         # Sync web app with native platforms
-npx cap open ios     # Open in Xcode
-npx cap open android # Open in Android Studio
-```
+# Preview production build
+npm run preview
 
-### Convex Backend
-```bash
-npx convex dev       # Start Convex development
-npx convex deploy    # Deploy Convex functions
+# Mobile platform sync
+npx cap sync
+npx cap open ios      # Open in Xcode
+npx cap open android  # Open in Android Studio
+
+# Convex backend
+npx convex dev        # Start Convex development
+npx convex deploy     # Deploy Convex functions
 ```
 
 ## Architecture Overview
 
 ### Tech Stack
 - **Frontend**: React 19 + TypeScript + Vite
-- **Styling**: Tailwind CSS 4 + shadcn/ui components
+- **Backend**: Convex (real-time, serverless)
+- **Styling**: Tailwind CSS v3 + shadcn/ui + Framer Motion
 - **Mobile**: Capacitor for iOS/Android PWA
-- **Backend**: Convex real-time serverless platform
-- **Testing**: Vitest + React Testing Library
+- **State**: Convex React hooks + Context API
+- **Payments**: Stripe (backend integration via Convex)
+- **Testing**: Vitest + React Testing Library + Convex Test
 
-### Key Architectural Patterns
+### Critical Known Issues & Workarounds
 
-1. **Real-time Architecture**: All data flows through Convex for real-time synchronization
-   - Games, scores, social posts update instantly across all clients
-   - Optimistic updates for responsive UI
+1. **Convex Type Generation Issue**: Due to Stripe initialization in convex/payments.ts preventing proper type generation, ALL components that import Id from dataModel must use this workaround:
+   ```typescript
+   // Temporarily disable Convex dataModel import to fix build issues
+   // import type { Id } from '../../convex/_generated/dataModel';
+   type Id<T> = string;
+   ```
 
-2. **Guest-First Design**: Players can join games without accounts
-   - Device-based guest sessions (see `lib/GuestSessionManager.ts`)
-   - Progressive enhancement to full accounts
+2. **TypeScript Import Pattern**: Always separate runtime and type imports to avoid Vite errors:
+   ```typescript
+   import { SomeClass } from './module';
+   import type { SomeType } from './module';
+   ```
 
-3. **Event-Driven Social Feed**: Live game moments captured and shared
-   - Social posts tied to game events (scores, photos, achievements)
-   - Real-time reactions and interactions
+3. **Capacitor Type Imports**: Some Capacitor types don't export properly:
+   ```typescript
+   // Instead of: import { ActionPerformed } from '@capacitor/push-notifications';
+   // Use: notification: any
+   ```
 
-4. **Mobile-First PWA**: Designed for golf course usage
-   - Offline capability considerations
-   - Camera integration for photo capture
-   - GPS location tracking for shots
+### Core User Flow
 
-### Data Model (Convex Schema)
+1. **Landing Page** (`/`) → Create game with instant QR code
+2. **Join Game** (`/join/:gameId`) → 1-step auto-join with `?auto=true` parameter
+3. **Live Game** (`/game/:gameId`) → Real-time scoring with tabs (scorecard/social/orders)
+4. **Post-Game** (`/locker-room/:gameId`) → Stats, AI highlights, rewards
 
-Core entities and their relationships:
-- **games**: Active golf games with status tracking
-- **players**: Both authenticated users and guests
-- **scores**: Hole-by-hole scoring with GPS data
-- **socialPosts**: Live feed of game moments
-- **photos**: Media captured during rounds
-- **foodOrders**: In-game F&B ordering
-- **sponsors/sponsorRewards**: Partner rewards system
-- **highlights**: AI-generated game summaries
+### Key Architectural Decisions
 
-### Key Components & Pages
+- **Guest-First Design**: Players join without accounts via device ID, convert later
+- **Real-Time Everything**: All game state via Convex subscriptions
+- **1-Step QR Join**: QR codes include `?auto=true` for instant joining
+- **Performance Optimizations**:
+  - Lazy loading with React.lazy() for heavy components
+  - Custom `useOptimizedQuery` hook with debouncing and selective fields
+  - React.memo() for expensive list items
+  - Suspense boundaries with GolfLoader component
+- **Dark Party Theme**: CSS variables in index.css define dark theme
+- **Mobile-First**: BottomTabNavigation, MobileLayout wrapper
 
-**Pages** (`src/pages/`):
-- `JoinGame`: Guest onboarding with QR/deep link support
-- `GameScorecard`: Live scoring and social feed
-- `LockerRoom`: Post-game highlights and memories
+### Convex Backend Structure
 
-**Core Components** (`src/components/`):
-- `SocialFeed`: Real-time game moments
-- `PhotoCapture`: Camera integration
-- `SponsorRewards`: Partner rewards display
-- `FoodOrderingMenu`: F&B ordering interface
+```
+convex/
+├── games.ts          # Core game logic, scoring, player management
+├── socialPosts.ts    # Social feed, reactions, posts
+├── sponsors.ts       # Sponsor rewards system
+├── foodOrders.ts     # F&B ordering integration (menu hardcoded)
+├── highlights.ts     # AI-powered highlight generation
+├── payments.ts       # Stripe payment processing
+├── userConversion.ts # Guest to user conversion flow
+├── guests.ts         # Guest session management
+├── photos.ts         # Photo storage and management
+└── schema.ts         # Database schema definitions
+```
 
-### Testing Strategy
+### Frontend Component Organization
 
-- **Unit Tests**: Component logic and utilities
-- **Integration Tests**: Full user flows (see `src/__tests__/integration/`)
-- **Convex Tests**: Backend function testing (`convex/__tests__/`)
-
-Run specific test: `npm test -- GameScorecard.test`
+```
+src/
+├── pages/             # Route components
+│   ├── LandingPage    # Entry with game creation
+│   ├── JoinGame       # Auto-join flow implementation
+│   ├── GameScorecard  # Live game with lazy-loaded tabs
+│   └── LockerRoom     # Post-game with lazy components
+├── components/
+│   ├── layout/        # MobileLayout, BottomTabNavigation
+│   ├── screens/       # ScorecardScreen (main scoring UI)
+│   ├── ui/            # Reusable (shadcn/ui + custom)
+│   └── [features]     # Feature components (SocialFeed, etc.)
+├── hooks/             # Custom hooks (useOptimizedQuery)
+├── utils/             # Utilities
+│   ├── notificationManager.ts  # Push/web notifications
+│   ├── paymentProcessor.ts     # Stripe integration
+│   └── socialSharing.ts        # Share functionality
+├── lib/               # Core libraries
+│   └── GuestSessionManager.ts  # Device ID sessions
+└── contexts/          # React contexts (AuthContext)
+```
 
 ### Environment Configuration
 
-Required environment variables:
+Required `.env.local`:
 ```
-VITE_CONVEX_URL=<your_convex_deployment_url>
-CONVEX_DEPLOYMENT=<deployment_name>
-```
-
-### Path Aliases
-
-Use `@/` for src imports:
-```typescript
-import { Button } from '@/components/ui/button'
+VITE_CONVEX_URL=your_convex_deployment_url
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...
 ```
 
-## Development Workflow
+Backend environment (set in Convex dashboard):
+```
+STRIPE_SECRET_KEY=sk_test_...
+```
 
-1. **Feature Development**:
-   - Create Convex schema/functions first
-   - Build React components with real-time hooks
-   - Add comprehensive tests
+### Testing Approach
 
-2. **Real-time Considerations**:
-   - Use `useQuery` for reactive data
-   - Implement optimistic updates with `useMutation`
-   - Handle loading/error states properly
+- **Unit Tests**: `vitest` for components and utilities
+- **Integration Tests**: Full user flows in `src/__tests__/integration/`
+- **Convex Tests**: Backend functions in `convex/__tests__/`
+- **Single Test**: `npm test -- path/to/test.test.ts`
 
-3. **Mobile Testing**:
-   - Test in browser with device emulation
-   - Use `npx cap sync` after changes
-   - Test native features (camera, GPS) on devices
+### Key Implementation Details
 
-## Important Notes
+1. **Auto-Join Flow**: 
+   - GameCreator adds `?auto=true` to QR URL
+   - JoinGame detects parameter and triggers auto-join
+   - Smart naming: "Player 1", "Player 2", etc.
 
-- All timestamps use `Date.now()` (milliseconds since epoch)
-- Guest sessions persist via device ID
-- Deep links format: `parparty://join/{gameId}`
-- Food orders integrate with course F&B systems
-- Sponsor rewards have validation rules and redemption tracking
+2. **Real-Time Updates**:
+   - All Convex queries auto-refresh on data changes
+   - Optimistic updates for scores via mutations
+   - Social feed uses AnimatePresence for smooth updates
+
+3. **PWA Configuration**:
+   - manifest.json with all icon sizes (generated in public/icons/)
+   - Service worker via Vite PWA plugin
+   - Offline consideration in components
+
+4. **Performance Patterns**:
+   ```typescript
+   // Lazy load heavy components
+   const SocialFeed = lazy(() => import('@/components/SocialFeed'));
+   
+   // Optimize queries
+   const gameState = useOptimizedQuery(
+     api.games.getGameState,
+     { gameId },
+     { selectiveFields: ['game.status'], debounce: 100 }
+   );
+   
+   // Memoize expensive operations
+   const SocialPost = memo(({ post, ... }) => { ... });
+   ```
+
+5. **Dark Theme Implementation**:
+   - CSS variables in `src/index.css`
+   - Tailwind classes use these variables
+   - No theme switching - always dark
+
+### Current State & Notes
+
+- **Working Features**: Game creation, QR join, real-time scoring, social feed
+- **Hardcoded Data**: F&B menu items, course information
+- **Import Workarounds**: Applied to ~15 components due to Convex type issue
+- **Mobile**: PWA ready but native features need device testing
+- **AI Highlights**: Backend ready but needs OpenAI key configuration

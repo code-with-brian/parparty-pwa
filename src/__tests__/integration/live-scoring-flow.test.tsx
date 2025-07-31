@@ -53,7 +53,7 @@ const { useQuery, useMutation } = await import('convex/react');
 
 // Integration test data simulating a real game scenario
 const createGameScenario = () => {
-  let currentScores = [
+  const currentScores = [
     {
       _id: 'score-1',
       playerId: 'player-alice',

@@ -59,7 +59,7 @@ export const getCoursesByLocation = query({
     state: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db.query("courses").withIndex("by_active", (q) => q.eq("isActive", true));
+    const query = ctx.db.query("courses").withIndex("by_active", (q) => q.eq("isActive", true));
     
     const courses = await query.collect();
     
@@ -141,7 +141,7 @@ export const updateCourseAnalytics = mutation({
       lastUpdated: Date.now(),
     };
 
-    let updatedAnalytics = { ...currentAnalytics };
+    const updatedAnalytics = { ...currentAnalytics };
 
     if (args.gameCompleted) {
       updatedAnalytics.totalGames += 1;

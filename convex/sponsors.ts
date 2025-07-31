@@ -387,8 +387,8 @@ export const getSponsorPerformanceComparison = query({
       // Get redemptions for this sponsor within date range
       let totalRedemptions = 0;
       let totalValue = 0;
-      let uniqueGames = new Set();
-      let uniquePlayers = new Set();
+      const uniqueGames = new Set();
+      const uniquePlayers = new Set();
 
       for (const reward of rewards) {
         const redemptions = await ctx.db

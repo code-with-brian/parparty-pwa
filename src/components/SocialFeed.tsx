@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 // Temporarily disable Convex dataModel import to fix build issues
@@ -23,6 +23,8 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notificationManager } from '@/utils/notificationManager';
+import { OptimizedImage } from '@/components/ui/optimized-image';
+import { fadeInUp, staggerContainer, staggerItem, listItem } from '@/utils/animations';
 
 interface SocialFeedProps {
   gameId: Id<"games">;
@@ -37,20 +39,20 @@ interface ReactionButtonProps {
   onClick: () => void;
 }
 
-function ReactionButton({ type, count, isActive, onClick }: ReactionButtonProps) {
-  const icons = {
+const ReactionButton = memo(({ type, count, isActive, onClick }: ReactionButtonProps) => {
+  const icons = useMemo(() => ({
     like: Heart,
     love: Heart,
     laugh: Laugh,
     wow: Eye,
-  };
+  }), []);
 
-  const colors = {
+  const colors = useMemo(() => ({
     like: isActive ? 'text-red-500' : 'text-gray-400',
     love: isActive ? 'text-pink-500' : 'text-gray-400',
     laugh: isActive ? 'text-yellow-500' : 'text-gray-400',
     wow: isActive ? 'text-blue-500' : 'text-gray-400',
-  };
+  }), [isActive]);
 
   const Icon = icons[type];
 
@@ -65,7 +67,7 @@ function ReactionButton({ type, count, isActive, onClick }: ReactionButtonProps)
       {count > 0 && <span className="text-xs">{count}</span>}
     </Button>
   );
-}
+});
 
 interface SocialPostProps {
   post: any;
@@ -75,27 +77,33 @@ interface SocialPostProps {
   onDeletePost?: (postId: Id<"socialPosts">) => void;
 }
 
-function SocialPost({ post, currentPlayerId, onReaction, onRemoveReaction, onDeletePost }: SocialPostProps) {
+const SocialPost = memo(({ post, currentPlayerId, onReaction, onRemoveReaction, onDeletePost }: SocialPostProps) => {
   const [showActions, setShowActions] = useState(false);
 
-  // Get current user's reaction
-  const userReaction = post.reactions?.find((r: any) => r.playerId === currentPlayerId);
+  // Get current user's reaction - memoized for performance
+  const userReaction = useMemo(() => 
+    post.reactions?.find((r: any) => r.playerId === currentPlayerId),
+    [post.reactions, currentPlayerId]
+  );
 
-  // Count reactions by type
-  const reactionCounts = (post.reactions || []).reduce((acc: any, reaction: any) => {
-    acc[reaction.type] = (acc[reaction.type] || 0) + 1;
-    return acc;
-  }, {});
+  // Count reactions by type - memoized for performance
+  const reactionCounts = useMemo(() => 
+    (post.reactions || []).reduce((acc: any, reaction: any) => {
+      acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+      return acc;
+    }, {}),
+    [post.reactions]
+  );
 
-  const handleReactionClick = (type: 'like' | 'love' | 'laugh' | 'wow') => {
+  const handleReactionClick = useCallback((type: 'like' | 'love' | 'laugh' | 'wow') => {
     if (userReaction?.type === type) {
       onRemoveReaction(post._id);
     } else {
       onReaction(post._id, type);
     }
-  };
+  }, [userReaction, onRemoveReaction, onReaction, post._id]);
 
-  const getPostIcon = () => {
+  const getPostIcon = useMemo(() => {
     switch (post.type) {
       case 'photo':
         return <Camera className="w-4 h-4 text-blue-500" />;
@@ -108,12 +116,19 @@ function SocialPost({ post, currentPlayerId, onReaction, onRemoveReaction, onDel
       default:
         return <MessageCircle className="w-4 h-4 text-gray-500" />;
     }
-  };
+  }, [post.type]);
 
-  const canDelete = currentPlayerId === post.playerId;
+  const canDelete = useMemo(() => currentPlayerId === post.playerId, [currentPlayerId, post.playerId]);
 
   return (
-    <Card className="mb-4">
+    <motion.div
+      variants={listItem}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      layout
+    >
+      <Card className="mb-4">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -175,10 +190,11 @@ function SocialPost({ post, currentPlayerId, onReaction, onRemoveReaction, onDel
             <div className="grid grid-cols-1 gap-2">
               {post.media.map((photo: any) => (
                 <div key={photo._id} className="relative">
-                  <img
+                  <OptimizedImage
                     src={photo.url}
                     alt={photo.caption || 'Shared photo'}
-                    className="w-full h-64 object-cover rounded-lg"
+                    className="w-full h-64 rounded-lg"
+                    height={256}
                   />
                   {photo.caption && (
                     <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 rounded-b-lg">
@@ -222,8 +238,9 @@ function SocialPost({ post, currentPlayerId, onReaction, onRemoveReaction, onDel
         )}
       </CardContent>
     </Card>
+    </motion.div>
   );
-}
+});
 
 interface CreatePostProps {
   gameId: Id<"games">;
@@ -231,7 +248,7 @@ interface CreatePostProps {
   onPostCreated: () => void;
 }
 
-function CreatePost({ gameId, playerId, onPostCreated }: CreatePostProps) {
+const CreatePost = memo(({ gameId, playerId, onPostCreated }: CreatePostProps) => {
   const [content, setContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
@@ -303,9 +320,9 @@ function CreatePost({ gameId, playerId, onPostCreated }: CreatePostProps) {
       </CardContent>
     </Card>
   );
-}
+});
 
-export default function SocialFeed({ gameId, currentPlayerId, className = '' }: SocialFeedProps) {
+const SocialFeed = memo(({ gameId, currentPlayerId, className = '' }: SocialFeedProps) => {
   // Real-time social feed subscription
   const socialFeed = useQuery(api.socialPosts.getGameSocialFeed, { gameId });
 
@@ -314,7 +331,7 @@ export default function SocialFeed({ gameId, currentPlayerId, className = '' }: 
   const removeReaction = useMutation(api.socialPosts.removeReaction);
   const deletePost = useMutation(api.socialPosts.deleteSocialPost);
 
-  const handleReaction = async (postId: Id<"socialPosts">, reactionType: 'like' | 'love' | 'laugh' | 'wow') => {
+  const handleReaction = useCallback(async (postId: Id<"socialPosts">, reactionType: 'like' | 'love' | 'laugh' | 'wow') => {
     if (!currentPlayerId) return;
     
     try {
@@ -326,9 +343,9 @@ export default function SocialFeed({ gameId, currentPlayerId, className = '' }: 
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
-  };
+  }, [currentPlayerId, addReaction]);
 
-  const handleRemoveReaction = async (postId: Id<"socialPosts">) => {
+  const handleRemoveReaction = useCallback(async (postId: Id<"socialPosts">) => {
     if (!currentPlayerId) return;
     
     try {
@@ -339,9 +356,9 @@ export default function SocialFeed({ gameId, currentPlayerId, className = '' }: 
     } catch (error) {
       console.error('Error removing reaction:', error);
     }
-  };
+  }, [currentPlayerId, removeReaction]);
 
-  const handleDeletePost = async (postId: Id<"socialPosts">) => {
+  const handleDeletePost = useCallback(async (postId: Id<"socialPosts">) => {
     if (!currentPlayerId) return;
     
     try {
@@ -353,11 +370,11 @@ export default function SocialFeed({ gameId, currentPlayerId, className = '' }: 
       console.error('Error deleting post:', error);
       alert('Failed to delete post. Please try again.');
     }
-  };
+  }, [currentPlayerId, deletePost]);
 
-  const handlePostCreated = () => {
+  const handlePostCreated = useCallback(() => {
     // The real-time subscription will automatically update the feed
-  };
+  }, []);
 
   if (!socialFeed) {
     return (
@@ -383,30 +400,41 @@ export default function SocialFeed({ gameId, currentPlayerId, className = '' }: 
       )}
 
       {/* Social Feed */}
-      <div className="space-y-4">
+      <motion.div 
+        className="space-y-4"
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
         {socialFeed.length === 0 ? (
-          <Card>
-            <CardContent className="p-8 text-center">
-              <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-600 mb-2">No posts yet</h3>
-              <p className="text-gray-500">
-                Be the first to share something about this round!
-              </p>
-            </CardContent>
-          </Card>
+          <motion.div variants={fadeInUp}>
+            <Card>
+              <CardContent className="p-8 text-center">
+                <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-600 mb-2">No posts yet</h3>
+                <p className="text-gray-500">
+                  Be the first to share something about this round!
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
         ) : (
-          socialFeed.map((post) => (
-            <SocialPost
-              key={post._id}
-              post={post}
-              currentPlayerId={currentPlayerId}
-              onReaction={handleReaction}
-              onRemoveReaction={handleRemoveReaction}
-              onDeletePost={handleDeletePost}
-            />
-          ))
+          <AnimatePresence mode="popLayout">
+            {socialFeed.map((post) => (
+              <SocialPost
+                key={post._id}
+                post={post}
+                currentPlayerId={currentPlayerId}
+                onReaction={handleReaction}
+                onRemoveReaction={handleRemoveReaction}
+                onDeletePost={handleDeletePost}
+              />
+            ))}
+          </AnimatePresence>
         )}
-      </div>
+      </motion.div>
     </div>
   );
-}
+});
+
+export default SocialFeed;

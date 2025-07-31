@@ -63,9 +63,15 @@ export class DeepLinkHandler {
       return true;
     }
     
-    // Game IDs should be alphanumeric, 6-12 characters
-    const gameIdRegex = /^[A-Z0-9]{6,12}$/;
-    return gameIdRegex.test(gameId);
+    // Accept Convex-generated IDs (longer, alphanumeric with underscores)
+    // These are typically 15-20+ characters and can contain lowercase letters
+    if (gameId.length >= 10 && /^[a-zA-Z0-9_]+$/.test(gameId)) {
+      return true;
+    }
+    
+    // Also accept short QR-friendly codes (6-12 uppercase alphanumeric)
+    const qrCodeRegex = /^[A-Z0-9]{6,12}$/;
+    return qrCodeRegex.test(gameId);
   }
 
   /**

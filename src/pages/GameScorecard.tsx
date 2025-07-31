@@ -4,21 +4,24 @@ import { api } from '../../convex/_generated/api';
 // Temporarily disable Convex dataModel import to fix build issues
 // import type { Id } from '../../convex/_generated/dataModel';
 type Id<T> = string;
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { Users, Clock, Target, Trophy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import SocialFeed from '@/components/SocialFeed';
-import PhotoCapture from '@/components/PhotoCapture';
-import FoodOrderingMenu from '@/components/FoodOrderingMenu';
-import OrderStatus from '@/components/OrderStatus';
 import { GolfLoader } from '@/components/ui/golf-loader';
 import { MobileLayout } from '@/components/layout/MobileLayout';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
 import { BottomTabNavigation } from '@/components/layout/BottomTabNavigation';
 import { ScorecardScreen } from '@/components/screens/ScorecardScreen';
 import { notificationManager } from '@/utils/notificationManager';
+import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
+
+// Lazy load heavy components for better performance
+const SocialFeed = lazy(() => import('@/components/SocialFeed'));
+const PhotoCapture = lazy(() => import('@/components/PhotoCapture'));
+const FoodOrderingMenu = lazy(() => import('@/components/FoodOrderingMenu'));
+const OrderStatus = lazy(() => import('@/components/OrderStatus'));
 
 
 export default function GameScorecard() {
@@ -31,14 +34,24 @@ export default function GameScorecard() {
   const [showFoodMenu, setShowFoodMenu] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<Id<"players"> | null>(null);
 
-  // Real-time game state subscription
-  const gameState = useQuery(api.games.getGameState, 
-    gameId ? { gameId: gameId as Id<"games"> } : "skip"
+  // Real-time game state subscription with optimization
+  const gameState = useOptimizedQuery(
+    api.games.getGameState, 
+    gameId ? { gameId: gameId as Id<"games"> } : "skip",
+    {
+      selectiveFields: ['game.status', 'players.length', 'game.name'],
+      debounce: 100 // Debounce updates by 100ms
+    }
   );
 
-  // Get detailed game data including scores
-  const gameData = useQuery(api.games.getGameData,
-    gameId ? { gameId: gameId as Id<"games"> } : "skip"
+  // Get detailed game data including scores with optimization
+  const gameData = useOptimizedQuery(
+    api.games.getGameData,
+    gameId ? { gameId: gameId as Id<"games"> } : "skip",
+    {
+      selectiveFields: ['scores', 'players', 'photos'],
+      debounce: 200 // Debounce score updates by 200ms
+    }
   );
 
   // Record score mutation
@@ -250,10 +263,12 @@ export default function GameScorecard() {
         />
       ) : activeTab === 'social' ? (
         <div className="p-4">
-          <SocialFeed
-            gameId={gameId as Id<"games">}
-            currentPlayerId={currentPlayerId}
-          />
+          <Suspense fallback={<GolfLoader size="md" text="Loading social feed..." />}>
+            <SocialFeed
+              gameId={gameId as Id<"games">}
+              currentPlayerId={currentPlayerId}
+            />
+          </Suspense>
         </div>
       ) : activeTab === 'orders' ? (
         <div className="p-4">
@@ -265,10 +280,12 @@ export default function GameScorecard() {
               >
                 🍔 Order Food & Beverages
               </button>
-              <OrderStatus
-                playerId={currentPlayerId}
-                gameId={gameId as Id<"games">}
-              />
+              <Suspense fallback={<GolfLoader size="md" text="Loading orders..." />}>
+                <OrderStatus
+                  playerId={currentPlayerId}
+                  gameId={gameId as Id<"games">}
+                />
+              </Suspense>
             </>
           )}
         </div>
@@ -283,33 +300,45 @@ export default function GameScorecard() {
       {/* Photo Capture Modal */}
       {showPhotoCapture && currentPlayerId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <PhotoCapture
-            gameId={gameId as Id<"games">}
-            playerId={currentPlayerId}
-            holeNumber={1}
-            onPhotoShared={() => {
-              setShowPhotoCapture(false);
-              setActiveTab('social');
-            }}
-            onClose={() => setShowPhotoCapture(false)}
-          />
+          <Suspense fallback={
+            <div className="bg-white rounded-lg p-8">
+              <GolfLoader size="md" text="Loading camera..." />
+            </div>
+          }>
+            <PhotoCapture
+              gameId={gameId as Id<"games">}
+              playerId={currentPlayerId}
+              holeNumber={1}
+              onPhotoShared={() => {
+                setShowPhotoCapture(false);
+                setActiveTab('social');
+              }}
+              onClose={() => setShowPhotoCapture(false)}
+            />
+          </Suspense>
         </div>
       )}
 
       {/* Food Ordering Menu Modal */}
       {showFoodMenu && currentPlayerId && gameState.game.courseId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <FoodOrderingMenu
-            gameId={gameId as Id<"games">}
-            playerId={currentPlayerId}
-            courseId={gameState.game.courseId}
-            currentHole={1}
-            onClose={() => setShowFoodMenu(false)}
-            onOrderPlaced={() => {
-              setShowFoodMenu(false);
-              setActiveTab('orders');
-            }}
-          />
+          <Suspense fallback={
+            <div className="bg-white rounded-lg p-8">
+              <GolfLoader size="md" text="Loading menu..." />
+            </div>
+          }>
+            <FoodOrderingMenu
+              gameId={gameId as Id<"games">}
+              playerId={currentPlayerId}
+              courseId={gameState.game.courseId}
+              currentHole={1}
+              onClose={() => setShowFoodMenu(false)}
+              onOrderPlaced={() => {
+                setShowFoodMenu(false);
+                setActiveTab('orders');
+              }}
+            />
+          </Suspense>
         </div>
       )}
     </MobileLayout>

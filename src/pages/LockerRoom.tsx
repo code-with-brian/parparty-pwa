@@ -6,7 +6,7 @@ import { api } from '../../convex/_generated/api';
 type Id<T> = string;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { 
   Trophy, 
   Users, 
@@ -22,15 +22,17 @@ import {
   TrendingUp,
   Calendar
 } from 'lucide-react';
-import SponsorRewards from '@/components/SponsorRewards';
-import RedemptionHistory from '@/components/RedemptionHistory';
-import HighlightManager from '@/components/HighlightManager';
-import UserConversion from '@/components/UserConversion';
 import { useAuth } from '@/contexts/AuthContext';
 import { GuestSessionManager } from '@/lib/GuestSessionManager';
 import { ConvexReactClient } from 'convex/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GolfLoader } from '@/components/ui/golf-loader';
+
+// Lazy load heavy components for better performance
+const SponsorRewards = lazy(() => import('@/components/SponsorRewards'));
+const RedemptionHistory = lazy(() => import('@/components/RedemptionHistory'));
+const HighlightManager = lazy(() => import('@/components/HighlightManager'));
+const UserConversion = lazy(() => import('@/components/UserConversion'));
 
 interface GameSummaryProps {
   game: any;
@@ -326,10 +328,12 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
 
       {/* AI Highlights Manager */}
       {currentPlayerId && (
-        <HighlightManager
-          gameId={game._id}
-          playerId={currentPlayerId}
-        />
+        <Suspense fallback={<GolfLoader size="md" text="Loading highlights..." />}>
+          <HighlightManager
+            gameId={game._id}
+            playerId={currentPlayerId}
+          />
+        </Suspense>
       )}
     </div>
   );
@@ -636,30 +640,40 @@ export default function LockerRoom() {
         )}
 
         {activeTab === 'rewards' && currentPlayerId && (
-          <SponsorRewards
-            gameId={gameId as Id<"games">}
-            playerId={currentPlayerId}
-            onRewardRedeemed={(redemption) => {
-              console.log('Reward redeemed:', redemption);
-              // Could show a success message or update UI
-            }}
-          />
+          <Suspense fallback={<GolfLoader size="md" text="Loading rewards..." />}>
+            <SponsorRewards
+              gameId={gameId as Id<"games">}
+              playerId={currentPlayerId}
+              onRewardRedeemed={(redemption) => {
+                console.log('Reward redeemed:', redemption);
+                // Could show a success message or update UI
+              }}
+            />
+          </Suspense>
         )}
 
         {activeTab === 'history' && currentPlayerId && (
-          <RedemptionHistory playerId={currentPlayerId} />
+          <Suspense fallback={<GolfLoader size="md" text="Loading history..." />}>
+            <RedemptionHistory playerId={currentPlayerId} />
+          </Suspense>
         )}
 
         {/* User Conversion Modal */}
         {showAccountCreation && currentGuestId && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <UserConversion
-                guestId={currentGuestId}
-                onConversionComplete={handleConversionComplete}
-                onCancel={handleConversionCancel}
-                showBenefits={true}
-              />
+              <Suspense fallback={
+                <div className="p-8 text-center">
+                  <GolfLoader size="md" text="Loading account creation..." />
+                </div>
+              }>
+                <UserConversion
+                  guestId={currentGuestId}
+                  onConversionComplete={handleConversionComplete}
+                  onCancel={handleConversionCancel}
+                  showBenefits={true}
+                />
+              </Suspense>
             </div>
           </div>
         )}
