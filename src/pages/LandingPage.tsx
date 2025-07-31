@@ -31,7 +31,14 @@ export default function LandingPage() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="mb-6"
           >
-            <div className="text-8xl mb-4">🏌️‍♂️</div>
+            <motion.img
+              src="/parparty-logo.svg"
+              alt="ParParty Logo"
+              className="w-32 h-32 md:w-40 md:h-40 mx-auto mb-6"
+              initial={{ rotate: -180, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              transition={{ duration: 1, delay: 0.3 }}
+            />
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
               ParParty Golf
             </h1>

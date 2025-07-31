@@ -196,11 +196,12 @@ export const updateOrderStatus = mutation({
   },
 });
 
-// Process payment for an order (simplified for MVP)
+// Process payment for an order
 export const processPayment = mutation({
   args: {
     orderId: v.id("foodOrders"),
     paymentId: v.string(),
+    paymentMethod: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
@@ -208,8 +209,11 @@ export const processPayment = mutation({
       throw new Error("Order not found");
     }
 
-    // In a real implementation, this would integrate with Stripe
-    // For MVP, we'll just mark the payment as processed
+    if (order.status !== "pending") {
+      throw new Error("Order is not in pending status");
+    }
+
+    // Update order with payment information
     await ctx.db.patch(args.orderId, {
       paymentId: args.paymentId,
       status: "confirmed",
@@ -223,6 +227,19 @@ export const processPayment = mutation({
       content: `Payment confirmed! Your order is being prepared.`,
       timestamp: Date.now(),
     });
+
+    // Update course analytics (simplified for MVP)
+    const course = await ctx.db.get(order.courseId);
+    if (course && course.analytics) {
+      await ctx.db.patch(order.courseId, {
+        analytics: {
+          ...course.analytics,
+          totalRevenue: course.analytics.totalRevenue + order.totalAmount,
+          averageOrderValue: (course.analytics.totalRevenue + order.totalAmount) / (course.analytics.totalGames + 1),
+          lastUpdated: Date.now(),
+        },
+      });
+    }
 
     return args.orderId;
   },

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { paymentProcessor, type PaymentRequest } from '@/utils/paymentProcessor';
+import { notificationManager } from '@/utils/notificationManager';
 import { 
   ShoppingCart, 
   Plus, 
@@ -16,7 +18,8 @@ import {
   X,
   Utensils,
   Coffee,
-  Cookie
+  Cookie,
+  AlertCircle
 } from 'lucide-react';
 
 interface MenuItem {
@@ -56,12 +59,15 @@ export default function FoodOrderingMenu({
   const [specialInstructions, setSpecialInstructions] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   // Get menu items
   const menuItems = useQuery(api.foodOrders.getMenuItems, { courseId });
 
-  // Place order mutation
+  // Mutations
   const placeOrder = useMutation(api.foodOrders.placeOrder);
+  const processPayment = useMutation(api.foodOrders.processPayment);
 
   const categories = [
     { id: "all", name: "All", icon: Utensils },
@@ -118,6 +124,8 @@ export default function FoodOrderingMenu({
     if (cart.length === 0) return;
 
     setIsPlacingOrder(true);
+    setPaymentError(null);
+
     try {
       const orderItems = cart.map(item => ({
         name: item.name,
@@ -126,7 +134,8 @@ export default function FoodOrderingMenu({
         description: item.description,
       }));
 
-      await placeOrder({
+      // First, create the order
+      const orderId = await placeOrder({
         playerId,
         gameId,
         courseId,
@@ -136,12 +145,49 @@ export default function FoodOrderingMenu({
         specialInstructions: specialInstructions || undefined,
       });
 
-      // Clear cart and close
-      setCart([]);
-      onOrderPlaced?.();
-      onClose();
+      // Process payment
+      const totalAmount = getTotalPrice();
+      const paymentRequest: PaymentRequest = {
+        amount: Math.round(totalAmount * 100), // Convert to cents
+        currency: 'USD',
+        description: `F&B Order: ${orderItems.map(item => `${item.quantity}x ${item.name}`).join(', ')}`,
+        orderId: orderId,
+      };
+
+      const paymentResult = await paymentProcessor.processPayment(paymentRequest);
+
+      if (paymentResult.success && paymentResult.paymentId) {
+        // Update order with payment information
+        await processPayment({
+          orderId,
+          paymentId: paymentResult.paymentId,
+        });
+
+        // Show success notification
+        await notificationManager.notifyOrderStatusUpdate(
+          'confirmed',
+          orderItems.map(item => `${item.quantity}x ${item.name}`),
+          deliveryLocation === "hole" && holeNumber 
+            ? `Hole ${holeNumber}` 
+            : deliveryLocation === "clubhouse" 
+            ? "Clubhouse" 
+            : "Golf Cart"
+        );
+
+        // Clear cart and close
+        setCart([]);
+        onOrderPlaced?.();
+        onClose();
+      } else if (paymentResult.requiresAction) {
+        // Handle 3D Secure or other payment actions
+        setPaymentError('Payment requires additional verification. Please try again.');
+      } else {
+        // Payment failed
+        setPaymentError(paymentResult.error || 'Payment failed. Please try again.');
+      }
     } catch (error) {
       console.error('Failed to place order:', error);
+      setPaymentError('Failed to place order. Please try again.');
     } finally {
       setIsPlacingOrder(false);
     }
@@ -389,6 +435,16 @@ export default function FoodOrderingMenu({
                           ${getTotalPrice().toFixed(2)}
                         </span>
                       </div>
+
+                      {/* Payment Error */}
+                      {paymentError && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <div className="flex items-center gap-2 text-red-700">
+                            <AlertCircle className="w-4 h-4" />
+                            <span className="text-sm">{paymentError}</span>
+                          </div>
+                        </div>
+                      )}
                       
                       <Button
                         onClick={handlePlaceOrder}

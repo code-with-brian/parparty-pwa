@@ -53,8 +53,8 @@ export default function GameCreator() {
 
       setCreatedGameId(gameId);
       
-      // Generate QR code immediately
-      const gameUrl = `${window.location.origin}/join/${gameId}`;
+      // Generate QR code immediately with auto-join parameter
+      const gameUrl = `${window.location.origin}/join/${gameId}?auto=true`;
       try {
         const qrDataUrl = await QRCodeLib.toDataURL(gameUrl, {
           width: 200,
@@ -79,7 +79,7 @@ export default function GameCreator() {
 
   const handleCopyLink = async () => {
     if (createdGameId) {
-      const gameUrl = `${window.location.origin}/join/${createdGameId}`;
+      const gameUrl = `${window.location.origin}/join/${createdGameId}?auto=true`;
       try {
         await navigator.clipboard.writeText(gameUrl);
         toast.success('Game link copied!');
@@ -91,7 +91,7 @@ export default function GameCreator() {
 
   const handleShare = async () => {
     if (createdGameId) {
-      const gameUrl = `${window.location.origin}/join/${createdGameId}`;
+      const gameUrl = `${window.location.origin}/join/${createdGameId}?auto=true`;
       
       if (navigator.share) {
         try {

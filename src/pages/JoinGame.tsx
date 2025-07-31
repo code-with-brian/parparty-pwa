@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ export default function JoinGame() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
   const convex = useConvex();
+  const [searchParams] = useSearchParams();
   
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [playerName, setPlayerName] = useState('');
@@ -34,6 +35,7 @@ export default function JoinGame() {
   const [loading, setLoading] = useState(false);
   const [gamePreview, setGamePreview] = useState<GamePreview | null>(null);
   const [guestSessionManager] = useState(() => new GuestSessionManager(convex));
+  const [isAutoJoining, setIsAutoJoining] = useState(false);
 
   // Validate game and load preview when gameId changes
   useEffect(() => {
@@ -43,6 +45,15 @@ export default function JoinGame() {
       setGamePreview(null);
     }
   }, [gameId]);
+
+  // Auto-join if coming from QR code
+  useEffect(() => {
+    const shouldAutoJoin = searchParams.get('auto') === 'true';
+    if (shouldAutoJoin && gamePreview && gamePreview.canJoin && !isAutoJoining && !error) {
+      setIsAutoJoining(true);
+      handleAutoJoin();
+    }
+  }, [gamePreview, searchParams]);
 
   // Handle deep link events
   useEffect(() => {
@@ -116,6 +127,49 @@ export default function JoinGame() {
     setShowQRScanner(false);
   };
 
+  const handleAutoJoin = async () => {
+    if (!gamePreview || !gamePreview.canJoin) {
+      setError('Cannot join this game');
+      setIsAutoJoining(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Generate smart default name based on current player count
+      const autoName = `Player ${gamePreview.playerCount + 1}`;
+
+      // Create guest session with auto-generated name
+      const guestSession = await guestSessionManager.createSession(autoName);
+
+      // Join the game as a guest
+      const playerId = await convex.mutation(api.guests.joinGameAsGuest, {
+        gameId: gamePreview.id,
+        guestId: guestSession.id,
+      });
+
+      // Set active game ID in session manager
+      guestSessionManager.setActiveGameId(gamePreview.id);
+
+      // Navigate to the game page
+      navigate(`/game/${gameId}`, { 
+        state: { 
+          playerId, 
+          guestSession,
+          gamePreview 
+        } 
+      });
+    } catch (err) {
+      console.error('Error auto-joining game:', err);
+      setError('Failed to join game. Please try again.');
+      setIsAutoJoining(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleJoinGame = async () => {
     if (!gamePreview || !gamePreview.canJoin) {
       setError('Cannot join this game');
@@ -161,7 +215,7 @@ export default function JoinGame() {
 
   if (showQRScanner) {
     return (
-      <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+      <div className="min-h-screen gradient-party-main flex items-center justify-center p-4">
         <motion.div 
           className="w-full max-w-md space-y-4"
           initial={{ opacity: 0, scale: 0.9 }}
@@ -185,14 +239,38 @@ export default function JoinGame() {
     );
   }
 
+  // Show auto-join loading state
+  if (isAutoJoining || (searchParams.get('auto') === 'true' && loading)) {
+    return (
+      <div className="min-h-screen gradient-party-hero flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="text-center"
+        >
+          <motion.img
+            src="/parparty-logo.svg"
+            alt="ParParty Logo"
+            className="w-24 h-24 mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
+          <h2 className="text-2xl font-bold text-white mb-2">Joining Game...</h2>
+          <p className="text-white/80">Just a moment</p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen gradient-golf-green flex items-center justify-center p-4">
+    <div className="min-h-screen gradient-party-main flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="w-full max-w-md card-hover glass">
+        <Card className="w-full max-w-md card-hover glass-party">
           <CardHeader>
             <CardTitle className="text-center text-2xl font-bold text-gradient">
               ⛳ Join Game
@@ -200,7 +278,7 @@ export default function JoinGame() {
           </CardHeader>
         <CardContent className="space-y-4">
           {error && (
-            <div className="text-red-600 text-sm bg-red-50 p-3 rounded border border-red-200">
+            <div className="text-red-400 text-sm bg-red-500/20 p-3 rounded border border-red-500/30">
               {error}
             </div>
           )}
@@ -213,24 +291,24 @@ export default function JoinGame() {
           )}
 
           {gamePreview && !loading && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-3">
+            <div className="bg-green-500/20 border border-green-500/30 rounded-lg p-4 space-y-3">
               <div className="text-center">
-                <h3 className="text-lg font-semibold text-green-800">{gamePreview.name}</h3>
-                <div className="text-sm text-gray-600 mt-1">
+                <h3 className="text-lg font-semibold text-green-400">{gamePreview.name}</h3>
+                <div className="text-sm text-slate-300 mt-1">
                   {gamePreview.format.charAt(0).toUpperCase() + gamePreview.format.slice(1)} Play
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="text-center">
-                  <div className="text-gray-600">Players</div>
-                  <div className="font-semibold">{gamePreview.playerCount}</div>
+                  <div className="text-slate-400">Players</div>
+                  <div className="font-semibold text-white">{gamePreview.playerCount}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-gray-600">Status</div>
+                  <div className="text-slate-400">Status</div>
                   <div className={`font-semibold capitalize ${
-                    gamePreview.status === 'active' ? 'text-green-600' : 
-                    gamePreview.status === 'waiting' ? 'text-yellow-600' : 'text-gray-600'
+                    gamePreview.status === 'active' ? 'text-green-400' : 
+                    gamePreview.status === 'waiting' ? 'text-yellow-400' : 'text-slate-400'
                   }`}>
                     {gamePreview.status}
                   </div>
@@ -239,20 +317,20 @@ export default function JoinGame() {
 
               {gamePreview.course && (
                 <div className="text-center text-sm">
-                  <div className="text-gray-600">Course</div>
-                  <div className="font-medium">{gamePreview.course.name}</div>
-                  <div className="text-xs text-gray-500">{gamePreview.course.address}</div>
+                  <div className="text-slate-400">Course</div>
+                  <div className="font-medium text-white">{gamePreview.course.name}</div>
+                  <div className="text-xs text-slate-400">{gamePreview.course.address}</div>
                 </div>
               )}
 
-              <div className="text-center text-xs text-gray-500">
+              <div className="text-center text-xs text-slate-400">
                 Started {new Date(gamePreview.startedAt).toLocaleString()}
               </div>
             </div>
           )}
 
           {!gameId && !loading && (
-            <div className="text-center text-gray-600">
+            <div className="text-center text-slate-400">
               Scan a QR code or enter a game ID to join
             </div>
           )}
@@ -269,7 +347,7 @@ export default function JoinGame() {
           {/* Action Buttons */}
           {gamePreview && gamePreview.canJoin ? (
             <Button 
-              className="w-full bg-green-600 hover:bg-green-700 transition-all hover:scale-105"
+              className="w-full gradient-party-button text-white hover:scale-105 transition-all duration-300"
               onClick={handleJoinGame}
               disabled={loading}
             >
@@ -284,14 +362,14 @@ export default function JoinGame() {
             </Button>
           ) : gameId && !loading && !gamePreview ? (
             <Button 
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full gradient-party-accent text-white hover:scale-105 transition-all duration-300"
               onClick={handleScanQR}
             >
               Scan QR Code
             </Button>
           ) : !gameId ? (
             <Button 
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full gradient-party-accent text-white hover:scale-105 transition-all duration-300"
               onClick={handleScanQR}
             >
               Scan QR Code
@@ -318,7 +396,7 @@ export default function JoinGame() {
               Create New Game
             </Button>
             
-            <div className="text-xs text-gray-500 space-y-1">
+            <div className="text-xs text-slate-500 space-y-1">
               <div>Deep link support: {DeepLinkHandler.isDeepLinkSupported() ? '✓' : '✗'}</div>
               <div>Share link: {gameId ? DeepLinkHandler.generateGameLink(gameId) : 'N/A'}</div>
             </div>

@@ -1,8 +1,18 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import OrderStatus from '../OrderStatus';
 import type { Id } from '../../../convex/_generated/dataModel';
+
+// Mock notification manager
+vi.mock('@/utils/notificationManager', () => ({
+  notificationManager: {
+    initialize: vi.fn(),
+    notifyOrderStatusUpdate: vi.fn(),
+    isEnabled: vi.fn(() => false),
+    requestPermission: vi.fn(() => Promise.resolve(true))
+  }
+}));
 
 // Mock Convex client
 const mockConvex = new ConvexReactClient('https://test.convex.cloud');
@@ -125,7 +135,7 @@ describe('OrderStatus', () => {
     renderWithConvex(
       <OrderStatus 
         {...defaultProps} 
-        gameId="game123" as Id<"games">
+        gameId={"game123" as Id<"games">}
       />
     );
     
@@ -197,5 +207,30 @@ describe('OrderStatus', () => {
     
     expect(screen.getByText('3 items')).toBeInTheDocument(); // 2 beers + 1 hot dog
     expect(screen.getByText('1 item')).toBeInTheDocument(); // 1 water bottle
+  });
+
+  it('shows notification toggle button', () => {
+    renderWithConvex(<OrderStatus {...defaultProps} />);
+    
+    expect(screen.getByText('Enable Notifications')).toBeInTheDocument();
+  });
+
+  it('handles notification permission request', async () => {
+    const { notificationManager } = await import('@/utils/notificationManager');
+    
+    renderWithConvex(<OrderStatus {...defaultProps} />);
+    
+    const notificationButton = screen.getByText('Enable Notifications');
+    fireEvent.click(notificationButton);
+    
+    expect(notificationManager.requestPermission).toHaveBeenCalled();
+  });
+
+  it('initializes notification manager on mount', () => {
+    const { notificationManager } = require('@/utils/notificationManager');
+    
+    renderWithConvex(<OrderStatus {...defaultProps} />);
+    
+    expect(notificationManager.initialize).toHaveBeenCalled();
   });
 });

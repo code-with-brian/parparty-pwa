@@ -3,13 +3,18 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { notificationManager } from '@/utils/notificationManager';
+import { useEffect } from 'react';
 import { 
   Clock, 
   CheckCircle, 
   Truck, 
   MapPin,
   Package,
-  ChefHat
+  ChefHat,
+  Bell,
+  BellOff
 } from 'lucide-react';
 
 interface OrderStatusProps {
@@ -67,6 +72,48 @@ export default function OrderStatus({ playerId, gameId, className = "" }: OrderS
   );
   const recentOrders = orders.slice(0, 5);
 
+  // Initialize notifications and watch for order status changes
+  useEffect(() => {
+    notificationManager.initialize();
+  }, []);
+
+  // Watch for order status changes and show notifications
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+
+    // Check for recently updated orders (within last 30 seconds)
+    const recentlyUpdated = orders.filter(order => {
+      const timeSinceUpdate = Date.now() - order.timestamp;
+      return timeSinceUpdate < 30000 && (order.status === 'ready' || order.status === 'delivered');
+    });
+
+    recentlyUpdated.forEach(order => {
+      const deliveryLocation = order.deliveryLocation === "hole" && order.holeNumber
+        ? `Hole ${order.holeNumber}`
+        : order.deliveryLocation === "clubhouse"
+        ? "Clubhouse"
+        : "Golf Cart";
+
+      notificationManager.notifyOrderStatusUpdate(
+        order.status,
+        order.items.map(item => `${item.quantity}x ${item.name}`),
+        deliveryLocation
+      );
+    });
+  }, [orders]);
+
+  const handleToggleNotifications = async () => {
+    if (notificationManager.isEnabled()) {
+      // Can't disable notifications once granted, but we can show status
+      alert('Notifications are enabled. You can disable them in your browser settings.');
+    } else {
+      const granted = await notificationManager.requestPermission();
+      if (!granted) {
+        alert('Notifications were not granted. You can enable them in your browser settings.');
+      }
+    }
+  };
+
   if (!orders || orders.length === 0) {
     return (
       <Card className={className}>
@@ -87,10 +134,30 @@ export default function OrderStatus({ playerId, gameId, className = "" }: OrderS
       {activeOrders.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Active Orders ({activeOrders.length})
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Active Orders ({activeOrders.length})
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleNotifications}
+                className="flex items-center gap-2"
+              >
+                {notificationManager.isEnabled() ? (
+                  <>
+                    <Bell className="w-4 h-4" />
+                    <span className="text-xs">Notifications On</span>
+                  </>
+                ) : (
+                  <>
+                    <BellOff className="w-4 h-4" />
+                    <span className="text-xs">Enable Notifications</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {activeOrders.map(order => {
