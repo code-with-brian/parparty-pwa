@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { ConvexReactClient } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
+import { notificationManager } from '../utils/notificationManager';
 
 interface User {
   _id: Id<"users">;
@@ -58,6 +59,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
 
     checkExistingSession();
   }, [convex]);
+
+  // Initialize notifications when app loads
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      try {
+        await notificationManager.initialize();
+      } catch (error) {
+        console.error('Failed to initialize notifications:', error);
+      }
+    };
+
+    initializeNotifications();
+  }, []);
 
   const login = async (tokenIdentifier: string, name: string, email?: string, image?: string) => {
     try {

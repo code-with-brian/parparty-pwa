@@ -238,4 +238,54 @@ export default defineSchema({
     .index("by_active", ["isActive"])
     .index("by_city", ["city"])
     .index("by_state", ["state"]),
+
+  // Push notification tokens
+  pushTokens: defineTable({
+    userId: v.optional(v.id("users")),
+    guestId: v.optional(v.id("guests")),
+    token: v.string(),
+    platform: v.union(v.literal("ios"), v.literal("android"), v.literal("web")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_guest", ["guestId"])
+    .index("by_token", ["token"]),
+
+  // Notification records
+  notifications: defineTable({
+    gameId: v.optional(v.id("games")),
+    playerId: v.optional(v.id("players")),
+    userId: v.optional(v.id("users")),
+    guestId: v.optional(v.id("guests")),
+    title: v.string(),
+    body: v.string(),
+    type: v.union(
+      v.literal("game_started"),
+      v.literal("game_finished"),
+      v.literal("score_update"),
+      v.literal("achievement"),
+      v.literal("social_moment"),
+      v.literal("order_update")
+    ),
+    priority: v.union(v.literal("low"), v.literal("normal"), v.literal("high")),
+    data: v.optional(v.object({
+      gameId: v.optional(v.id("games")),
+      orderId: v.optional(v.id("foodOrders")),
+      triggerPlayerId: v.optional(v.id("players")),
+      achievement: v.optional(v.string()),
+      status: v.optional(v.string()),
+      url: v.optional(v.string()),
+    })),
+    read: v.boolean(),
+    readAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_user", ["userId"])
+    .index("by_guest", ["guestId"])
+    .index("by_game", ["gameId"])
+    .index("by_player", ["playerId"])
+    .index("by_type", ["type"])
+    .index("by_read", ["read"])
+    .index("by_user_read", ["userId", "read"])
+    .index("by_guest_read", ["guestId", "read"])
+    .index("by_created", ["createdAt"]),
 });

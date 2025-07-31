@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { notificationManager } from '@/utils/notificationManager';
 
 interface SocialFeedProps {
   gameId: Id<"games">;
@@ -246,6 +247,15 @@ function CreatePost({ gameId, playerId, onPostCreated }: CreatePostProps) {
         type: 'custom',
         content: content.trim(),
       });
+
+      // Trigger social moment notification for other players
+      await notificationManager.notifySocialEvent(
+        'New social post',
+        `Someone shared: ${content.trim().substring(0, 50)}${content.trim().length > 50 ? '...' : ''}`,
+        gameId,
+        'low'
+      );
+
       setContent('');
       onPostCreated();
     } catch (error) {

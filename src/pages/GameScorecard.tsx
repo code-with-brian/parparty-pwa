@@ -16,6 +16,7 @@ import { MobileLayout } from '@/components/layout/MobileLayout';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
 import { BottomTabNavigation } from '@/components/layout/BottomTabNavigation';
 import { ScorecardScreen } from '@/components/screens/ScorecardScreen';
+import { notificationManager } from '@/utils/notificationManager';
 
 
 export default function GameScorecard() {
@@ -77,6 +78,33 @@ export default function GameScorecard() {
         holeNumber,
         strokes,
       });
+
+      // Find the player who scored
+      const player = gameState?.players.find(p => p._id === playerId);
+      if (player && gameId) {
+        // Trigger score update notification for other players
+        await notificationManager.notifyGameEvent(
+          `${player.name} scored on hole ${holeNumber}`,
+          `${strokes} strokes on hole ${holeNumber}`,
+          gameId,
+          'normal'
+        );
+
+        // Check for notable scores and trigger special notifications
+        if (strokes === 1) {
+          await notificationManager.notifyAchievement(
+            'Hole in One!',
+            `${player.name} got a hole in one on hole ${holeNumber}!`,
+            gameId
+          );
+        } else if (strokes === 2 && holeNumber >= 3) { // Assuming par 3+ holes
+          await notificationManager.notifyAchievement(
+            'Eagle!',
+            `${player.name} scored an eagle on hole ${holeNumber}!`,
+            gameId
+          );
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to record score');
     }
