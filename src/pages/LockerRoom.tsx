@@ -22,6 +22,11 @@ import {
 } from 'lucide-react';
 import SponsorRewards from '@/components/SponsorRewards';
 import RedemptionHistory from '@/components/RedemptionHistory';
+import HighlightManager from '@/components/HighlightManager';
+import UserConversion from '@/components/UserConversion';
+import { useAuth } from '@/contexts/AuthContext';
+import { GuestSessionManager } from '@/lib/GuestSessionManager';
+import { ConvexReactClient } from 'convex/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GolfLoader } from '@/components/ui/golf-loader';
 
@@ -317,49 +322,12 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
         </Card>
       )}
 
-      {/* AI Highlights */}
-      {highlights && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-purple-500" />
-              Your Round Story
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg mb-4">
-              <p className="text-gray-700 leading-relaxed">{highlights.narrative}</p>
-            </div>
-            
-            {highlights.keyMoments.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-800">Key Moments</h4>
-                {highlights.keyMoments.slice(0, 5).map((moment, index) => (
-                  <div key={index} className="flex items-start gap-3 p-3 bg-white rounded-lg border">
-                    <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      {moment.type === "best_shot" ? "⭐" : 
-                       moment.type === "order" ? "🍔" : 
-                       moment.type === "achievement" ? "🏆" : 
-                       moment.type === "social_moment" ? "📸" : "⛳"}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-700">{moment.description}</p>
-                      {moment.holeNumber && (
-                        <p className="text-xs text-gray-500 mt-1">Hole {moment.holeNumber}</p>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {new Date(moment.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* AI Highlights Manager */}
+      {currentPlayerId && (
+        <HighlightManager
+          gameId={game._id}
+          playerId={currentPlayerId}
+        />
       )}
     </div>
   );
@@ -447,8 +415,10 @@ function AccountCreationCTA({ gameData, currentPlayerId, onCreateAccount }: Acco
 export default function LockerRoom() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'summary' | 'rewards' | 'history'>('summary');
   const [currentPlayerId, setCurrentPlayerId] = useState<Id<"players"> | null>(null);
+  const [currentGuestId, setCurrentGuestId] = useState<Id<"guests"> | null>(null);
   const [showAccountCreation, setShowAccountCreation] = useState(false);
 
   // Get complete game data
@@ -472,16 +442,50 @@ export default function LockerRoom() {
 
   // Set current player ID from guest session or user context
   useEffect(() => {
-    // For now, we'll use the first player as current player
-    // In a real app, this would come from authentication context
-    if (gameData?.players && gameData.players.length > 0) {
-      setCurrentPlayerId(gameData.players[0]._id);
-    }
-  }, [gameData]);
+    const initializeCurrentPlayer = async () => {
+      if (gameData?.players && gameData.players.length > 0) {
+        if (!isAuthenticated) {
+          // For guest users, find the player associated with their guest session
+          try {
+            const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
+            const guestManager = new GuestSessionManager(convex);
+            const currentSession = await guestManager.getCurrentSession();
+            
+            // Find the player record for this guest
+            const guestPlayer = gameData.players.find((p: any) => p.guestId === currentSession.id);
+            if (guestPlayer) {
+              setCurrentPlayerId(guestPlayer._id);
+              setCurrentGuestId(currentSession.id);
+            } else {
+              // Fallback to first player if no guest match found
+              setCurrentPlayerId(gameData.players[0]._id);
+            }
+          } catch (error) {
+            console.error('Error getting guest session:', error);
+            setCurrentPlayerId(gameData.players[0]._id);
+          }
+        } else {
+          // For authenticated users, find their player record
+          // This would be implemented when user authentication is fully integrated
+          setCurrentPlayerId(gameData.players[0]._id);
+        }
+      }
+    };
+
+    initializeCurrentPlayer();
+  }, [gameData, isAuthenticated]);
 
   const handleCreateAccount = () => {
-    // In a real app, this would open a signup modal or navigate to signup
-    alert('Account creation would be implemented here!');
+    setShowAccountCreation(true);
+  };
+
+  const handleConversionComplete = () => {
+    setShowAccountCreation(false);
+    // Optionally refresh the page or update UI to reflect the new user status
+    window.location.reload();
+  };
+
+  const handleConversionCancel = () => {
     setShowAccountCreation(false);
   };
 
@@ -644,36 +648,16 @@ export default function LockerRoom() {
           <RedemptionHistory playerId={currentPlayerId} />
         )}
 
-        {/* Account Creation Modal */}
-        {showAccountCreation && (
+        {/* User Conversion Modal */}
+        {showAccountCreation && currentGuestId && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-xl font-bold mb-4">Create Your Account</h3>
-              <p className="text-gray-600 mb-6">
-                Sign up to save your golf memories and track your progress over time.
-              </p>
-              <div className="space-y-3">
-                <Button 
-                  onClick={handleCreateAccount}
-                  className="w-full bg-green-600 hover:bg-green-700"
-                >
-                  Sign Up with Email
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={handleCreateAccount}
-                  className="w-full"
-                >
-                  Continue with Google
-                </Button>
-                <Button 
-                  variant="ghost"
-                  onClick={() => setShowAccountCreation(false)}
-                  className="w-full"
-                >
-                  Maybe Later
-                </Button>
-              </div>
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <UserConversion
+                guestId={currentGuestId}
+                onConversionComplete={handleConversionComplete}
+                onCancel={handleConversionCancel}
+                showBenefits={true}
+              />
             </div>
           </div>
         )}

@@ -1,6 +1,9 @@
 import { api } from "../../convex/_generated/api";
 import { ConvexReactClient } from "convex/react";
 import type { Id } from "../../convex/_generated/dataModel";
+import { OfflineQueueManager } from "./OfflineQueueManager";
+import { ErrorRecoveryManager } from "./ErrorRecoveryManager";
+import { GameDataCache } from "./GameDataCache";
 
 export interface GuestSession {
   id: Id<"guests">;
@@ -24,12 +27,16 @@ export interface GuestSessionData {
 
 export class GuestSessionManager {
   private convex: ConvexReactClient;
+  private offlineQueue?: OfflineQueueManager;
+  private errorRecovery?: ErrorRecoveryManager;
   private static readonly DEVICE_ID_KEY = "parparty_device_id";
   private static readonly GUEST_SESSION_KEY = "parparty_guest_session";
   private static readonly TEMP_DATA_KEY = "parparty_temp_data";
 
-  constructor(convex: ConvexReactClient) {
+  constructor(convex: ConvexReactClient, offlineQueue?: OfflineQueueManager, errorRecovery?: ErrorRecoveryManager) {
     this.convex = convex;
+    this.offlineQueue = offlineQueue;
+    this.errorRecovery = errorRecovery;
   }
 
   /**
@@ -149,10 +156,20 @@ export class GuestSessionManager {
    */
   public async mergeToUser(guestId: Id<"guests">, userId: Id<"users">): Promise<void> {
     try {
-      // This would be implemented when user conversion is built
-      // For now, we'll just clear the local session
-      this.clearLocalSession();
-      console.log(`Guest ${guestId} would be merged to user ${userId}`);
+      // Call the conversion function which handles all data migration
+      const result = await this.convex.mutation(api.userConversion.convertGuestToUser, {
+        guestId,
+        name: "Converted User", // This will be overridden by the actual conversion flow
+        tokenIdentifier: `converted_${Date.now()}_${Math.random().toString(36).substring(2)}`,
+      });
+
+      if (result.success) {
+        // Clear local guest session data since it's now merged
+        this.clearLocalSession();
+        console.log(`Successfully merged guest ${guestId} to user ${userId}`);
+      } else {
+        throw new Error("Conversion failed");
+      }
     } catch (error) {
       console.error("Error merging guest to user:", error);
       throw new Error("Failed to merge guest session to user");
@@ -283,14 +300,308 @@ export class GuestSessionManager {
     // Try to get existing session
     const localSession = this.getLocalSession();
     if (localSession) {
-      // Verify with server
-      const serverSession = await this.resumeSession(localSession.deviceId);
-      if (serverSession) {
-        return serverSession;
+      // If offline, return local session
+      if (!navigator.onLine) {
+        console.log('Offline: Using cached guest session');
+        return localSession;
+      }
+
+      // If online, verify with server
+      try {
+        const serverSession = await this.resumeSession(localSession.deviceId);
+        if (serverSession) {
+          return serverSession;
+        }
+      } catch (error) {
+        // If server verification fails, use local session as fallback
+        if (this.errorRecovery) {
+          await this.errorRecovery.handleError(error as Error, 'getCurrentSession');
+        }
+        console.log('Server verification failed, using local session');
+        return localSession;
       }
     }
 
     // Create new session if none exists or validation failed
-    return await this.createSession();
+    try {
+      return await this.createSession();
+    } catch (error) {
+      // If session creation fails and we have offline support, create offline session
+      if (!navigator.onLine) {
+        return this.createOfflineSession();
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Create an offline-only guest session
+   */
+  private createOfflineSession(): GuestSession {
+    const deviceId = this.getDeviceId();
+    const offlineSession: GuestSession = {
+      id: `offline_${Date.now()}_${Math.random().toString(36).substring(2)}` as Id<"guests">,
+      deviceId,
+      name: undefined,
+      createdAt: Date.now(),
+      activeGameId: this.getActiveGameId(),
+      tempData: this.getTempData(),
+    };
+
+    this.storeSessionLocally(offlineSession);
+    console.log('Created offline guest session');
+    return offlineSession;
+  }
+
+  /**
+   * Record score with offline support
+   */
+  public async recordScore(
+    playerId: Id<"players">,
+    gameId: Id<"games">,
+    holeNumber: number,
+    strokes: number,
+    putts?: number,
+    gpsLocation?: { lat: number; lng: number }
+  ): Promise<void> {
+    const scoreData = {
+      playerId,
+      gameId,
+      holeNumber,
+      strokes,
+      putts,
+      timestamp: Date.now(),
+      gpsLocation,
+    };
+
+    if (this.offlineQueue) {
+      // Use offline queue which handles online/offline automatically
+      this.offlineQueue.queueScore(scoreData);
+    } else {
+      // Fallback to direct API call
+      try {
+        await this.convex.mutation(api.games.recordScore, scoreData);
+      } catch (error) {
+        if (this.errorRecovery) {
+          await this.errorRecovery.handleError(error as Error, 'recordScore');
+        }
+        throw error;
+      }
+    }
+
+    // Store in temp data for immediate UI updates
+    this.storeTempData('scores', scoreData);
+  }
+
+  /**
+   * Upload photo with offline support
+   */
+  public async uploadPhoto(
+    playerId: Id<"players">,
+    gameId: Id<"games">,
+    url: string,
+    caption?: string,
+    holeNumber?: number,
+    gpsLocation?: { lat: number; lng: number }
+  ): Promise<void> {
+    const photoData = {
+      playerId,
+      gameId,
+      url,
+      caption,
+      holeNumber,
+      timestamp: Date.now(),
+      gpsLocation,
+    };
+
+    if (this.offlineQueue) {
+      // Use offline queue which handles online/offline automatically
+      this.offlineQueue.queuePhoto(photoData);
+    } else {
+      // Fallback to direct API call
+      try {
+        await this.convex.mutation(api.photos.uploadPhoto, {
+          gameId,
+          playerId,
+          url,
+          caption,
+          holeNumber,
+          gpsLocation,
+        });
+      } catch (error) {
+        if (this.errorRecovery) {
+          await this.errorRecovery.handleError(error as Error, 'uploadPhoto');
+        }
+        throw error;
+      }
+    }
+
+    // Store in temp data for immediate UI updates
+    this.storeTempData('photos', photoData);
+  }
+
+  /**
+   * Place food order with offline support
+   */
+  public async placeOrder(
+    playerId: Id<"players">,
+    gameId: Id<"games">,
+    courseId: Id<"courses">,
+    items: Array<{
+      name: string;
+      quantity: number;
+      price: number;
+      description?: string;
+    }>,
+    deliveryLocation: "hole" | "clubhouse" | "cart",
+    holeNumber?: number,
+    specialInstructions?: string
+  ): Promise<void> {
+    const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    const orderData = {
+      playerId,
+      gameId,
+      courseId,
+      items,
+      totalAmount,
+      deliveryLocation,
+      holeNumber,
+      timestamp: Date.now(),
+      specialInstructions,
+    };
+
+    if (this.offlineQueue) {
+      // Use offline queue which handles online/offline automatically
+      this.offlineQueue.queueOrder(orderData);
+    } else {
+      // Fallback to direct API call
+      try {
+        await this.convex.mutation(api.foodOrders.placeOrder, {
+          playerId,
+          gameId,
+          courseId,
+          items,
+          deliveryLocation,
+          holeNumber,
+          specialInstructions,
+        });
+      } catch (error) {
+        if (this.errorRecovery) {
+          await this.errorRecovery.handleError(error as Error, 'placeOrder');
+        }
+        throw error;
+      }
+    }
+
+    // Store in temp data for immediate UI updates
+    this.storeTempData('orders', orderData);
+  }
+
+  /**
+   * Get game data with offline fallback
+   */
+  public async getGameData(gameId: Id<"games">): Promise<any> {
+    try {
+      // Try to get fresh data from server
+      const gameData = await this.convex.query(api.games.getGameData, { gameId });
+      
+      // Cache the data for offline use
+      if (gameData) {
+        GameDataCache.cacheGameData(gameId, gameData);
+      }
+      
+      return gameData;
+    } catch (error) {
+      // If online request fails, try cached data
+      const cachedData = GameDataCache.getCachedGameData(gameId);
+      if (cachedData) {
+        console.log('Using cached game data due to network error');
+        
+        // Merge with offline data if available
+        if (this.offlineQueue) {
+          const offlineScores = this.offlineQueue.getCachedScores(gameId);
+          const offlinePhotos = this.offlineQueue.getCachedPhotos(gameId);
+          GameDataCache.mergeOfflineData(gameId, offlineScores, offlinePhotos);
+        }
+        
+        return cachedData;
+      }
+
+      // If no cached data available, handle error
+      if (this.errorRecovery) {
+        await this.errorRecovery.handleError(error as Error, 'getGameData');
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Get game state with offline fallback
+   */
+  public async getGameState(gameId: Id<"games">): Promise<any> {
+    try {
+      // Try to get fresh state from server
+      const gameState = await this.convex.query(api.games.getGameState, { gameId });
+      
+      // Cache the state for offline use
+      if (gameState) {
+        GameDataCache.cacheGameState(gameId, gameState);
+      }
+      
+      return gameState;
+    } catch (error) {
+      // If online request fails, try cached state
+      const cachedState = GameDataCache.getCachedGameState(gameId);
+      if (cachedState) {
+        console.log('Using cached game state due to network error');
+        return cachedState;
+      }
+
+      // If no cached state available, handle error
+      if (this.errorRecovery) {
+        await this.errorRecovery.handleError(error as Error, 'getGameState');
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Sync offline data when back online
+   */
+  public async syncOfflineData(): Promise<void> {
+    if (this.offlineQueue) {
+      await this.offlineQueue.syncWhenOnline();
+    }
+  }
+
+  /**
+   * Get offline status and queue information
+   */
+  public getOfflineStatus(): {
+    isOnline: boolean;
+    queueLength: number;
+    cachedScores: number;
+    cachedPhotos: number;
+    cachedOrders: number;
+    syncInProgress: boolean;
+  } | null {
+    if (this.offlineQueue) {
+      return this.offlineQueue.getQueueStatus();
+    }
+    return null;
+  }
+
+  /**
+   * Clear all offline data
+   */
+  public clearOfflineData(): void {
+    if (this.offlineQueue) {
+      this.offlineQueue.clearAllCachedData();
+    }
+    GameDataCache.clearAllCachedData();
+    this.clearTempData();
   }
 }

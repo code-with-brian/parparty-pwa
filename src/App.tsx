@@ -9,6 +9,7 @@ import Test from './pages/Test';
 import GameCreator from './pages/GameCreator';
 import { DeepLinkHandler } from './utils/deepLink';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AuthProvider } from './contexts/AuthContext';
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -21,17 +22,19 @@ function App() {
   return (
     <ErrorBoundary>
       <ConvexProvider client={convex}>
-        <Router>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/test" element={<Test />} />
-            <Route path="/create" element={<GameCreator />} />
-            <Route path="/join/:gameId" element={<JoinGame />} />
-            <Route path="/join" element={<JoinGame />} />
-            <Route path="/game/:gameId" element={<GameScorecard />} />
-            <Route path="/finish/:gameId" element={<LockerRoom />} />
-          </Routes>
-        </Router>
+        <AuthProvider convex={convex}>
+          <Router>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/test" element={<Test />} />
+              <Route path="/create" element={<GameCreator />} />
+              <Route path="/join/:gameId" element={<JoinGame />} />
+              <Route path="/join" element={<JoinGame />} />
+              <Route path="/game/:gameId" element={<GameScorecard />} />
+              <Route path="/finish/:gameId" element={<LockerRoom />} />
+            </Routes>
+          </Router>
+        </AuthProvider>
       </ConvexProvider>
     </ErrorBoundary>
   );

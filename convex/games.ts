@@ -855,3 +855,17 @@ export const deleteScore = mutation({
     }
   },
 });
+
+// Alias for addPlayerToGame for compatibility
+export const addPlayer = mutation({
+  args: {
+    gameId: v.id("games"),
+    name: v.string(),
+    userId: v.optional(v.id("users")),
+    guestId: v.optional(v.id("guests")),
+    teamId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await addPlayerToGame(ctx, args);
+  },
+});

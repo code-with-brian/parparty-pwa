@@ -56,6 +56,19 @@ export const getByToken = query({
   },
 });
 
+// Store/update user (alias for create for compatibility)
+export const store = mutation({
+  args: {
+    name: v.string(),
+    email: v.optional(v.string()),
+    tokenIdentifier: v.string(),
+    image: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await create(ctx, args);
+  },
+});
+
 // Create a test user for development
 export const createTestUser = mutation({
   args: {

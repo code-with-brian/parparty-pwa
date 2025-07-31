@@ -397,3 +397,23 @@ export const getPostReactions = query({
     }
   },
 });
+
+// Alias for createSocialPost for compatibility
+export const createPost = mutation({
+  args: {
+    gameId: v.id("games"),
+    playerId: v.id("players"),
+    type: v.union(
+      v.literal("score"),
+      v.literal("photo"),
+      v.literal("achievement"),
+      v.literal("order"),
+      v.literal("custom")
+    ),
+    content: v.string(),
+    mediaIds: v.optional(v.array(v.id("photos"))),
+  },
+  handler: async (ctx, args) => {
+    return await createSocialPost(ctx, args);
+  },
+});
