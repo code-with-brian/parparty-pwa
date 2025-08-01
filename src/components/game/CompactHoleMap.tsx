@@ -43,53 +43,55 @@ export const CompactHoleMap: React.FC<CompactHoleMapProps> = ({
   }
 
   // Generate Google Maps markers for the compact view
-  const mapMarkers = [
-    // Tee box marker
-    {
-      position: gpsCoordinates.teeBox,
-      title: `Hole ${holeData.number} Tee`,
-      info: `<div class="p-2"><strong>Hole ${holeData.number} Tee</strong><br/>Par ${holeData.par} • ${holeData.yardage} yards</div>`,
-      icon: {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-          <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="10" fill="#10B981" stroke="white" stroke-width="2"/>
-            <text x="12" y="16" text-anchor="middle" fill="white" font-family="Arial" font-size="8" font-weight="bold">T</text>
-          </svg>
-        `),
-        scaledSize: new google.maps.Size(24, 24),
+  const getMapMarkers = () => {
+    return [
+      // Tee box marker
+      {
+        position: gpsCoordinates.teeBox,
+        title: `Hole ${holeData.number} Tee`,
+        info: `<div class="p-2"><strong>Hole ${holeData.number} Tee</strong><br/>Par ${holeData.par} • ${holeData.yardage} yards</div>`,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="10" fill="#10B981" stroke="white" stroke-width="2"/>
+              <text x="12" y="16" text-anchor="middle" fill="white" font-family="Arial" font-size="8" font-weight="bold">T</text>
+            </svg>
+          `),
+          scaledSize: { width: 24, height: 24 },
+        },
       },
-    },
-    // Pin marker
-    {
-      position: gpsCoordinates.pin,
-      title: `Hole ${holeData.number} Pin`,
-      info: `<div class="p-2"><strong>Hole ${holeData.number} Pin</strong><br/>Target location</div>`,
-      icon: {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-          <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 2L10 18M6 6L14 6" stroke="#DC2626" stroke-width="2" fill="none"/>
-            <circle cx="10" cy="6" r="2" fill="#DC2626"/>
-          </svg>
-        `),
-        scaledSize: new google.maps.Size(20, 20),
+      // Pin marker
+      {
+        position: gpsCoordinates.pin,
+        title: `Hole ${holeData.number} Pin`,
+        info: `<div class="p-2"><strong>Hole ${holeData.number} Pin</strong><br/>Target location</div>`,
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 2L10 18M6 6L14 6" stroke="#DC2626" stroke-width="2" fill="none"/>
+              <circle cx="10" cy="6" r="2" fill="#DC2626"/>
+            </svg>
+          `),
+          scaledSize: { width: 20, height: 20 },
+        },
       },
-    },
-    // Player location marker
-    ...(gpsCoordinates.playerLocation ? [{
-      position: gpsCoordinates.playerLocation,
-      title: 'Your Position',
-      info: '<div class="p-2"><strong>Your Current Position</strong></div>',
-      icon: {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-          <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="8" cy="8" r="6" fill="#3B82F6" stroke="white" stroke-width="2"/>
-            <circle cx="8" cy="8" r="2" fill="white"/>
-          </svg>
-        `),
-        scaledSize: new google.maps.Size(16, 16),
-      },
-    }] : []),
-  ];
+      // Player location marker
+      ...(gpsCoordinates.playerLocation ? [{
+        position: gpsCoordinates.playerLocation,
+        title: 'Your Position',
+        info: '<div class="p-2"><strong>Your Current Position</strong></div>',
+        icon: {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="6" fill="#3B82F6" stroke="white" stroke-width="2"/>
+              <circle cx="8" cy="8" r="2" fill="white"/>
+            </svg>
+          `),
+          scaledSize: { width: 16, height: 16 },
+        },
+      }] : []),
+    ];
+  };
 
   const mapCenter = gpsCoordinates.teeBox;
 
@@ -128,7 +130,7 @@ export const CompactHoleMap: React.FC<CompactHoleMapProps> = ({
         <GoogleMap
           center={mapCenter}
           zoom={16}
-          markers={mapMarkers}
+          markers={getMapMarkers()}
           mapTypeId="satellite"
           style={{ width: '100%', height: '120px' }}
           gestureHandling="none"

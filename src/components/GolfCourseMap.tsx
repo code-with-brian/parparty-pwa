@@ -93,7 +93,7 @@ export const GolfCourseMap: React.FC<GolfCourseMapProps> = ({
             <text x="20" y="26" text-anchor="middle" fill="white" font-family="Arial" font-size="12" font-weight="bold">⛳</text>
           </svg>
         `),
-        scaledSize: new google.maps.Size(40, 40),
+        scaledSize: { width: 40, height: 40 },
       },
     }] : []),
     
@@ -124,7 +124,7 @@ export const GolfCourseMap: React.FC<GolfCourseMapProps> = ({
             <text x="16" y="20" text-anchor="middle" fill="white" font-family="Arial" font-size="10" font-weight="bold">${hole.holeNumber}</text>
           </svg>
         `),
-        scaledSize: new google.maps.Size(32, 32),
+        scaledSize: { width: 32, height: 32 },
       },
     })),
 
@@ -140,7 +140,7 @@ export const GolfCourseMap: React.FC<GolfCourseMapProps> = ({
             <circle cx="12" cy="6" r="2" fill="#DC2626"/>
           </svg>
         `),
-        scaledSize: new google.maps.Size(24, 24),
+        scaledSize: { width: 24, height: 24 },
       },
     })),
 
@@ -156,7 +156,7 @@ export const GolfCourseMap: React.FC<GolfCourseMapProps> = ({
             <circle cx="10" cy="10" r="3" fill="white"/>
           </svg>
         `),
-        scaledSize: new google.maps.Size(20, 20),
+        scaledSize: { width: 20, height: 20 },
       },
     }] : []),
 
@@ -172,7 +172,7 @@ export const GolfCourseMap: React.FC<GolfCourseMapProps> = ({
             <circle cx="10" cy="10" r="3" fill="white"/>
           </svg>
         `),
-        scaledSize: new google.maps.Size(20, 20),
+        scaledSize: { width: 20, height: 20 },
       },
     }] : []),
   ];

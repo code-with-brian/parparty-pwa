@@ -9,7 +9,10 @@ interface GoogleMapProps {
     position: { lat: number; lng: number };
     title?: string;
     info?: string;
-    icon?: string;
+    icon?: string | {
+      url: string;
+      scaledSize?: { width: number; height: number };
+    };
   }>;
   onMapClick?: (event: google.maps.MapMouseEvent) => void;
   onMarkerClick?: (marker: any, index: number) => void;
@@ -37,7 +40,7 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
   onMarkerClick,
   className = '',
   style = { width: '100%', height: '400px' },
-  mapTypeId = google.maps?.MapTypeId?.ROADMAP || 'roadmap' as any,
+  mapTypeId = 'roadmap' as any,
   gestureHandling = 'auto',
   disableDefaultUI = false,
   zoomControl = true,
@@ -123,11 +126,21 @@ export const GoogleMap: React.FC<GoogleMapProps> = ({
 
     // Add new markers
     markers.forEach((markerData, index) => {
+      let icon: any = markerData.icon;
+      
+      // Convert icon object to Google Maps icon format
+      if (icon && typeof icon === 'object' && icon.scaledSize) {
+        icon = {
+          url: icon.url,
+          scaledSize: new google.maps.Size(icon.scaledSize.width, icon.scaledSize.height),
+        };
+      }
+      
       const marker = new google.maps.Marker({
         position: markerData.position,
         map,
         title: markerData.title,
-        icon: markerData.icon,
+        icon: icon,
       });
 
       // Add info window if info is provided
