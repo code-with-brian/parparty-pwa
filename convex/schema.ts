@@ -222,6 +222,8 @@ export default defineSchema({
     totalHoles: v.optional(v.number()), // Added for number of holes
     totalPar: v.optional(v.number()), // Added for total par
     hasGPS: v.optional(v.boolean()), // Added for GPS availability
+    latitude: v.optional(v.number()), // Course latitude for distance calculations
+    longitude: v.optional(v.number()), // Course longitude for distance calculations
     // Enhanced golf course data
     location: v.optional(v.object({
       lat: v.number(),
@@ -549,4 +551,31 @@ export default defineSchema({
     .index("by_game", ["gameId"])
     .index("by_date", ["date"])
     .index("by_course_date", ["courseId", "date"]),
+
+  // Separate table for hole coordinates to avoid document size limits
+  holeCoordinates: defineTable({
+    courseId: v.id("courses"),
+    holeNumber: v.number(),
+    par: v.number(),
+    coordinates: v.array(v.object({
+      type: v.string(), // "tee", "green_center", "green_front", "hazard_start", etc.
+      location: v.number(), // 1, 2, 3 for tee positions
+      latitude: v.number(),
+      longitude: v.number(),
+      poi: v.number(), // Point of Interest type from golf API
+    })),
+    yardage: v.optional(v.object({
+      championship: v.optional(v.number()),
+      mens: v.optional(v.number()),
+      womens: v.optional(v.number()),
+      junior: v.optional(v.number()),
+    })),
+    difficulty: v.optional(v.union(v.literal("easy"), v.literal("medium"), v.literal("hard"))),
+    strokeIndex: v.optional(v.number()),
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_course", ["courseId"])
+    .index("by_course_hole", ["courseId", "holeNumber"])
+    .index("by_hole", ["holeNumber"]),
 });

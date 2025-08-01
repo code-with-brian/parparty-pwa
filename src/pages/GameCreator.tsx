@@ -1,16 +1,17 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
-import { QrCode, Copy, Share, Users, ArrowLeft, MapPin, ChevronRight } from 'lucide-react';
+import { QrCode, Copy, Share, Users, ArrowLeft, MapPin, ChevronRight, Loader2, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCodeLib from 'qrcode';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useGeolocation } from '@/hooks/useGeolocation';
 
 // Temporarily disable Convex dataModel import to fix build issues
 // import type { Id } from '../../convex/_generated/dataModel';
@@ -61,7 +62,7 @@ export default function GameCreator() {
   const [gameName, setGameName] = useState('');
   const [userName, setUserName] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<Id<'courses'> | null>(null);
-  const [step, setStep] = useState<'name' | 'course' | 'created'>('name');
+  const [step, setStep] = useState<'form' | 'created'>('form');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
@@ -72,7 +73,30 @@ export default function GameCreator() {
   const createGame = useMutation(api.games.createGame);
   const createTestUser = useMutation(api.users.createTestUser);
   const addPlayerToGame = useMutation(api.games.addPlayerToGame);
-  const courses = useQuery(api.golfCourses.getAllCourses);
+  
+  // Get user's location
+  const { latitude, longitude, error: locationError, loading: locationLoading } = useGeolocation({
+    enableHighAccuracy: true,
+    timeout: 15000,
+    maximumAge: 300000, // 5 minutes
+  });
+  
+  // Get courses sorted by proximity to user's location
+  const courses = useQuery(
+    api.golfCourses.getCoursesByProximity, 
+    latitude && longitude ? {
+      userLatitude: latitude,
+      userLongitude: longitude,
+      limit: 10
+    } : { limit: 10 }
+  );
+  
+  // Auto-select the first (closest) course when courses load
+  useEffect(() => {
+    if (courses && courses.length > 0 && !selectedCourse) {
+      setSelectedCourse(courses[0]._id);
+    }
+  }, [courses, selectedCourse]);
   
   // Get live game state to show players joining
   const gameState = useQuery(
@@ -80,17 +104,16 @@ export default function GameCreator() {
     createdGameId ? { gameId: createdGameId as any } : "skip"
   );
 
-  const handleNameSubmit = () => {
+  const handleFormSubmit = () => {
+    if (!selectedCourse) {
+      setError('Please select a golf course');
+      return;
+    }
     if (!userName.trim()) {
       setError('Please enter your name');
       return;
     }
     setError(null);
-    setStep('course');
-  };
-
-  const handleCourseSelection = () => {
-    // Allow proceeding without course selection
     handleCreateGame();
   };
 
@@ -112,7 +135,7 @@ export default function GameCreator() {
         name: generatedGameName,
         createdBy: userId,
         format: 'stroke',
-        courseId: selectedCourse || undefined
+        courseId: selectedCourse!
       });
 
       // Automatically add the creator as the first player
@@ -309,8 +332,9 @@ export default function GameCreator() {
                     setCreatedGameId(null);
                     setGameName('');
                     setQrCodeUrl('');
-                    setStep('name');
+                    setStep('form');
                     setSelectedCourse(null);
+                    setUserName('');
                   }}
                   variant="ghost"
                   className="w-full text-slate-400 hover:text-white"
@@ -320,61 +344,45 @@ export default function GameCreator() {
               </div>
             </motion.div>
           ) : (
-            <>
-              {step === 'name' && (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                >
-                  <div className="text-center mb-6">
-                    <h3 className="text-lg font-medium text-white mb-2">
-                      Let's start a new round! 🏌️‍♂️
-                    </h3>
-                    <p className="text-sm text-slate-300">
-                      Enter your name to create a game
-                    </p>
-                  </div>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-medium text-white mb-2">
+                  Start a New Round 🏌️‍♂️
+                </h3>
+                <p className="text-sm text-slate-300">
+                  Choose your course and enter your name
+                </p>
+                
+                {/* Location Status */}
+                <div className="mt-3 flex items-center justify-center gap-2 text-xs">
+                  {locationLoading ? (
+                    <div className="flex items-center gap-2 text-blue-400">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Finding your location...</span>
+                    </div>
+                  ) : latitude && longitude ? (
+                    <div className="flex items-center gap-2 text-green-400">
+                      <Navigation className="w-3 h-3" />
+                      <span>Courses sorted by distance</span>
+                    </div>
+                  ) : locationError ? (
+                    <div className="text-amber-400">
+                      <span>Using default course order</span>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
 
-                  <Input
-                    placeholder="Your name"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    disabled={loading}
-                    className="text-center text-lg"
-                    autoFocus
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && userName.trim()) {
-                        handleNameSubmit();
-                      }
-                    }}
-                  />
-
-                  <Button 
-                    onClick={handleNameSubmit}
-                    disabled={loading || !userName.trim()}
-                    className="w-full gradient-party-button text-white hover:scale-105 transition-all duration-300"
-                  >
-                    Next <ChevronRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </motion.div>
-              )}
-
-              {step === 'course' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                >
-                  <div className="text-center mb-6">
-                    <h3 className="text-lg font-medium text-white mb-2">
-                      Select a Golf Course (Optional)
-                    </h3>
-                    <p className="text-sm text-slate-300">
-                      Choose a course or skip to create a casual round
-                    </p>
-                  </div>
-
+              <div className="space-y-4">
+                {/* Course Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Golf Course
+                  </label>
                   {courses && courses.length > 0 ? (
                     <Select
                       value={selectedCourse || ''}
@@ -384,14 +392,24 @@ export default function GameCreator() {
                         <SelectValue placeholder="Select a course..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {courses.map((course) => (
+                        {courses.map((course, index) => (
                           <SelectItem key={course._id} value={course._id}>
                             <div className="flex items-center gap-2">
-                              <MapPin className="w-4 h-4" />
-                              <div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                {index === 0 && latitude && longitude && (course as any).distance && (
+                                  <span className="text-xs text-green-500 font-medium">CLOSEST</span>
+                                )}
+                              </div>
+                              <div className="flex-1">
                                 <div className="font-medium">{course.clubName}</div>
-                                <div className="text-sm text-muted-foreground">
-                                  {course.name} • {course.city}, {course.state}
+                                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <span>{course.name} • {course.city}, {course.state}</span>
+                                  {(course as any).distance && (
+                                    <span className="text-xs bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded">
+                                      {Math.round((course as any).distance)} km
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -400,44 +418,66 @@ export default function GameCreator() {
                       </SelectContent>
                     </Select>
                   ) : (
-                    <div className="text-center py-8 text-slate-400">
-                      <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <div className="text-center py-6 text-slate-400 border-2 border-dashed border-slate-600 rounded-lg">
+                      <MapPin className="w-6 h-6 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No courses available</p>
-                      <p className="text-xs mt-1">You can still create a casual round</p>
                     </div>
                   )}
+                </div>
 
-                  <div className="space-y-3 mt-6">
-                    <Button 
-                      onClick={handleCourseSelection}
-                      disabled={loading}
-                      className="w-full gradient-party-button text-white hover:scale-105 transition-all duration-300"
-                    >
-                      {loading ? 'Creating...' : selectedCourse ? 'Create Game' : 'Skip & Create Game'}
-                    </Button>
+                {/* Name Input */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    First Name
+                  </label>
+                  <Input
+                    placeholder="Enter your first name"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    disabled={loading}
+                    className="text-lg"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && userName.trim() && selectedCourse) {
+                        handleFormSubmit();
+                      }
+                    }}
+                  />
+                </div>
+              </div>
 
-                    <Button 
-                      onClick={() => setStep('name')}
-                      variant="ghost"
-                      className="w-full text-slate-400 hover:text-white"
-                    >
-                      <ArrowLeft className="w-4 h-4 mr-2" /> Back
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </>
+              <div className="space-y-3 mt-8">
+                <Button 
+                  onClick={handleFormSubmit}
+                  disabled={loading || !userName.trim() || !selectedCourse}
+                  className="w-full h-12 gradient-party-button text-white hover:scale-105 transition-all duration-300 font-semibold text-lg"
+                >
+                  {loading ? 'Creating Game...' : 'Create Game'} 
+                  {!loading && <ChevronRight className="w-4 h-4 ml-2" />}
+                </Button>
+
+                <Button 
+                  onClick={() => navigate('/')}
+                  variant="ghost"
+                  className="w-full text-slate-400 hover:text-white"
+                  disabled={loading}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Main Menu
+                </Button>
+              </div>
+            </motion.div>
           )}
 
-          <div className="text-center">
-            <Button 
-              variant="outline"
-              onClick={() => navigate('/join')}
-              className="w-full"
-            >
-              Back to Join Game
-            </Button>
-          </div>
+          {step !== 'created' && (
+            <div className="text-center">
+              <Button 
+                variant="outline"
+                onClick={() => navigate('/')}
+                className="w-full"
+              >
+                Back to Main Menu
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -26,13 +26,54 @@ interface Score {
   putts?: number;
 }
 
+interface CourseData {
+  _id: string;
+  name: string;
+  clubName: string;
+  latitude?: number;
+  longitude?: number;
+  holes?: Array<{
+    holeNumber: number;
+    par: number;
+    coordinates?: Array<{
+      type: string;
+      latitude: number;
+      longitude: number;
+      location: number;
+      poi: number;
+    }>;
+  }>;
+}
+
+// Temporarily disable Convex dataModel import to fix build issues
+// import type { Id } from '../../convex/_generated/dataModel';
+type Id<T> = string;
+
+interface HoleCoordinate {
+  _id: Id<"holeCoordinates">;
+  courseId: Id<"courses">;
+  holeNumber: number;
+  par: number;
+  coordinates: Array<{
+    type: string;
+    latitude: number;
+    longitude: number;
+    location: number;
+    poi: number;
+  }>;
+  createdAt: number;
+  updatedAt: number;
+}
+
 interface ScorecardScreenProps {
   players: Player[];
   scores: Score[];
   onScoreUpdate: (playerId: string, holeNumber: number, strokes: number, putts?: number) => void;
+  courseData?: CourseData | null;
+  holeCoordinates?: HoleCoordinate[] | null;
 }
 
-export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScreenProps) {
+export function ScorecardScreen({ players, scores, onScoreUpdate, courseData, holeCoordinates }: ScorecardScreenProps) {
   const [selectedHole, setSelectedHole] = useState(1);
   const [view, setView] = useState<'scoring' | 'caddie'>('scoring');
   const [selectedClub, setSelectedClub] = useState<string | null>(null);
@@ -40,8 +81,10 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
 
   // Get real weather data for the golf course
   const { weatherData, loading: weatherLoading, error: weatherError } = useGolfCourseWeather(
-    'Stanford Golf Course', // This should come from game/course data
-    { lat: 37.4419, lng: -122.1430 } // Golf course coordinates
+    courseData?.clubName || 'Peterborough Golf and Country Club',
+    courseData?.latitude && courseData?.longitude 
+      ? { lat: courseData.latitude, lng: courseData.longitude }
+      : { lat: 44.3106, lng: -78.2889 } // Peterborough coordinates
   );
 
   // Create score lookup
@@ -149,8 +192,114 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
     improvements: ['Driving Accuracy', 'Long Irons']
   };
 
-  // Get current hole par (defaulting to 4 if not found)
-  const currentHolePar = mockHoleData.par;
+  // Generate real course GPS coordinates for current hole using new holeCoordinates table
+  const generateHoleGPSCoordinates = (holeNumber: number) => {
+    // Enhanced debug logging
+    console.log('=== GPS COORDINATES DEBUG ===');
+    console.log('Current hole:', holeNumber);
+    console.log('Course data loaded:', !!courseData);
+    console.log('Hole coordinates loaded:', !!holeCoordinates);
+    console.log('Hole coordinates count:', holeCoordinates?.length);
+    
+    if (holeCoordinates) {
+      console.log('All hole numbers available:', holeCoordinates.map(h => h.holeNumber));
+    }
+    
+    // Default to Peterborough coordinates for fallback
+    const peterboroughBase = { lat: 44.3106, lng: -78.2889 };
+    
+    // Find hole coordinates from the new holeCoordinates table
+    const holeData = holeCoordinates?.find(h => h.holeNumber === holeNumber);
+    
+    if (holeData && holeData.coordinates && holeData.coordinates.length > 0) {
+      console.log(`🎯 FOUND REAL GPS DATA for hole ${holeNumber}!`);
+      console.log('Hole data:', {
+        holeNumber: holeData.holeNumber,
+        par: holeData.par,
+        coordinates: holeData.coordinates
+      });
+      
+      // Use actual GPS coordinates from the holeCoordinates table
+      // According to golf API docs: poi: 1 = Green, poi: 11 = Front tee, poi: 12 = Back tee
+      // IMPORTANT: The poi values are correct, but I mislabeled the types during import
+      // poi: 1 = Green, poi: 12 = Back tee (this is the actual structure in our data)
+      const teeCoord = holeData.coordinates.find(c => c.poi === 12 || c.poi === 11); // Back tee or Front tee
+      const pinCoord = holeData.coordinates.find(c => c.poi === 1); // Green
+      
+      console.log('Tee coordinate found:', teeCoord);
+      console.log('Pin coordinate found:', pinCoord);
+      
+      let teeCoords = { lat: peterboroughBase.lat, lng: peterboroughBase.lng };
+      let pinCoords = { lat: peterboroughBase.lat + 0.003, lng: peterboroughBase.lng + 0.001 };
+      
+      if (teeCoord) {
+        teeCoords = { lat: teeCoord.latitude, lng: teeCoord.longitude };
+        console.log(`✅ Using REAL tee coordinates: ${teeCoords.lat}, ${teeCoords.lng}`);
+      } else {
+        console.log('⚠️ No tee coordinate found, using fallback');
+      }
+      
+      if (pinCoord) {
+        pinCoords = { lat: pinCoord.latitude, lng: pinCoord.longitude };
+        console.log(`✅ Using REAL pin coordinates: ${pinCoords.lat}, ${pinCoords.lng}`);
+      } else {
+        console.log('⚠️ No pin coordinate found, using fallback');
+      }
+      
+      // Generate player position between tee and pin
+      const playerLat = teeCoords.lat + (pinCoords.lat - teeCoords.lat) * 0.4;
+      const playerLng = teeCoords.lng + (pinCoords.lng - teeCoords.lng) * 0.4;
+      
+      const result = {
+        teeBox: teeCoords,
+        pin: pinCoords,
+        playerLocation: { lat: playerLat, lng: playerLng },
+        hazards: [
+          { 
+            lat: playerLat + 0.0005, 
+            lng: playerLng + 0.0008, 
+            type: 'water' as const, 
+            name: 'Water Hazard' 
+          },
+          { 
+            lat: pinCoords.lat - 0.0003, 
+            lng: pinCoords.lng - 0.0005, 
+            type: 'bunker' as const, 
+            name: 'Green Side Bunker' 
+          },
+        ],
+      };
+      
+      console.log('🚀 Returning REAL GPS coordinates:', result);
+      return result;
+    } else {
+      console.log('❌ No hole coordinate data found for hole', holeNumber);
+      console.log('Available holes:', holeCoordinates?.map(h => h.holeNumber) || 'none');
+    }
+    
+    // Fallback: If no hole coordinates data available, generate realistic defaults
+    console.log('⚠️ Using FALLBACK coordinates for hole', holeNumber);
+    const holeOffset = (holeNumber - 1) * 0.002; // ~200m between holes
+    const holeVariation = (holeNumber % 2 === 0 ? 1 : -1) * 0.001; // Alternating sides
+    
+    const fallbackResult = {
+      teeBox: { lat: peterboroughBase.lat + holeOffset, lng: peterboroughBase.lng + holeVariation },
+      pin: { lat: peterboroughBase.lat + holeOffset + 0.003, lng: peterboroughBase.lng + holeVariation + 0.001 },
+      playerLocation: { lat: peterboroughBase.lat + holeOffset + 0.0012, lng: peterboroughBase.lng + holeVariation + 0.0004 },
+      hazards: [
+        { lat: peterboroughBase.lat + holeOffset + 0.0015, lng: peterboroughBase.lng + holeVariation + 0.0008, type: 'water' as const, name: 'Water Hazard' },
+        { lat: peterboroughBase.lat + holeOffset + 0.0027, lng: peterboroughBase.lng + holeVariation + 0.0009, type: 'bunker' as const, name: 'Green Side Bunker' },
+      ],
+    };
+    
+    console.log('📍 Returning fallback coordinates:', fallbackResult);
+    return fallbackResult;
+  };
+
+  // Get current hole par from holeCoordinates or courseData or default to 4
+  const currentHoleCoordinate = holeCoordinates?.find(h => h.holeNumber === selectedHole);
+  const currentHole = courseData?.holes?.find(h => h.holeNumber === selectedHole);
+  const currentHolePar = currentHoleCoordinate?.par || currentHole?.par || mockHoleData.par;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
@@ -245,21 +394,15 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
               <CompactHoleMap
                 holeData={{
                   ...mockHoleData,
+                  number: selectedHole,
+                  par: currentHolePar,
                   hazards: [
                     { type: 'water', carryDistance: 185, name: 'Water Hazard' },
                     { type: 'bunker', carryDistance: 220, name: 'Front Bunker' },
                     { type: 'bunker', carryDistance: 240, name: 'Right Bunker' }
                   ]
                 }}
-                gpsCoordinates={{
-                  teeBox: { lat: 37.4419, lng: -122.1430 },
-                  pin: { lat: 37.4425, lng: -122.1435 },
-                  playerLocation: { lat: 37.4422, lng: -122.1432 },
-                  hazards: [
-                    { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
-                    { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
-                  ],
-                }}
+                gpsCoordinates={generateHoleGPSCoordinates(selectedHole)}
                 distanceToPin={mockPlayerPosition.distanceToPin}
                 onMapClick={() => setShowFullscreenMap(true)}
               />
@@ -320,19 +463,15 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
             <div className="px-6 space-y-6">
               {/* Hole Map - Clickable for fullscreen */}
               <HoleMapView
-                holeData={mockHoleData}
+                holeData={{
+                  ...mockHoleData,
+                  number: selectedHole,
+                  par: currentHolePar,
+                }}
                 playerPosition={mockPlayerPosition}
                 onPositionSelect={(position) => console.log('Selected position:', position)}
                 onMapClick={() => setShowFullscreenMap(true)}
-                gpsCoordinates={{
-                  teeBox: { lat: 37.4419, lng: -122.1430 }, // Example: Stanford Golf Course
-                  pin: { lat: 37.4425, lng: -122.1435 },
-                  playerLocation: { lat: 37.4422, lng: -122.1432 },
-                  hazards: [
-                    { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
-                    { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
-                  ],
-                }}
+                gpsCoordinates={generateHoleGPSCoordinates(selectedHole)}
               />
 
               {/* AI Caddie Suggestions */}
@@ -408,18 +547,14 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
               >
                 <div className="w-full h-full">
                   <HoleMapView
-                    holeData={mockHoleData}
+                    holeData={{
+                      ...mockHoleData,
+                      number: selectedHole,
+                      par: currentHolePar,
+                    }}
                     playerPosition={mockPlayerPosition}
                     onPositionSelect={(position) => console.log('Selected position:', position)}
-                    gpsCoordinates={{
-                      teeBox: { lat: 37.4419, lng: -122.1430 },
-                      pin: { lat: 37.4425, lng: -122.1435 },
-                      playerLocation: { lat: 37.4422, lng: -122.1432 },
-                      hazards: [
-                        { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
-                        { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
-                      ],
-                    }}
+                    gpsCoordinates={generateHoleGPSCoordinates(selectedHole)}
                   />
                 </div>
                 

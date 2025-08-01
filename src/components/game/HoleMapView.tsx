@@ -116,6 +116,7 @@ export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapC
   const googleMapCenter = gpsCoordinates ? 
     gpsCoordinates.teeBox : 
     { lat: 39.8283, lng: -98.5795 };
+    
 
   // Always show Google Maps if GPS coordinates are available
   const shouldShowGoogleMaps = !!gpsCoordinates;

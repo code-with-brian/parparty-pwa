@@ -2,7 +2,7 @@ import { useParams, useNavigate, useBeforeUnload } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
+import React, { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import { Users, Clock, Target, Trophy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,30 @@ export default function GameScorecard() {
       debounce: 200 // Debounce score updates by 200ms
     }
   );
+
+  // Get course details if courseId exists
+  const courseData = useQuery(
+    api.golfCourses.getCourseDetails,
+    gameData?.game.courseId ? { courseId: gameData.game.courseId as Id<"courses"> } : "skip"
+  );
+
+  // Get hole coordinates from new holeCoordinates table
+  const holeCoordinates = useQuery(
+    api.golfCourses.getAllHoleCoordinatesForCourse,
+    gameData?.game.courseId ? { courseId: gameData.game.courseId as Id<"courses"> } : "skip"
+  );
+
+  // Debug logging for data flow
+  React.useEffect(() => {
+    console.log('🔍 GameScorecard Debug:');
+    console.log('- gameData?.game.courseId:', gameData?.game.courseId);
+    console.log('- courseData loaded:', !!courseData);
+    console.log('- holeCoordinates loaded:', !!holeCoordinates);
+    console.log('- holeCoordinates count:', holeCoordinates?.length);
+    if (holeCoordinates?.length) {
+      console.log('- First hole example:', holeCoordinates[0]);
+    }
+  }, [gameData?.game.courseId, courseData, holeCoordinates]);
 
   // Record score mutation
   const recordScore = useMutation(api.games.recordScore);
@@ -290,6 +314,8 @@ export default function GameScorecard() {
           players={gameState.players}
           scores={gameData.scores}
           onScoreUpdate={handleScoreUpdate}
+          courseData={courseData}
+          holeCoordinates={holeCoordinates}
         />
       ) : activeTab === 'social' ? (
         <SocialFeed 
