@@ -73,17 +73,22 @@ export function useOptimizedQuery<Query extends any>(
 
       debounceTimeoutRef.current = setTimeout(() => {
         setDebouncedData(optimizedData);
+        debounceTimeoutRef.current = null;
       }, debounce);
-
-      return () => {
-        if (debounceTimeoutRef.current) {
-          clearTimeout(debounceTimeoutRef.current);
-        }
-      };
     } else {
       setDebouncedData(optimizedData);
     }
   }, [optimizedData, debounce]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   return debounce > 0 ? debouncedData : optimizedData;
 }
@@ -93,8 +98,8 @@ function getNestedValue(obj: any, path: string): any {
   return path.split('.').reduce((current, key) => current?.[key], obj);
 }
 
-// Deep equality check with performance optimizations
-function deepEqual(a: any, b: any): boolean {
+// Deep equality check with performance optimizations and circular reference protection
+function deepEqual(a: any, b: any, visited = new WeakSet()): boolean {
   if (a === b) return true;
   
   if (a == null || b == null) return a === b;
@@ -103,12 +108,22 @@ function deepEqual(a: any, b: any): boolean {
   
   if (typeof a !== 'object') return a === b;
   
+  // Handle Date objects
+  if (a instanceof Date && b instanceof Date) {
+    return a.getTime() === b.getTime();
+  }
+  
+  // Prevent circular reference issues
+  if (visited.has(a) || visited.has(b)) return a === b;
+  visited.add(a);
+  visited.add(b);
+  
   if (Array.isArray(a) !== Array.isArray(b)) return false;
   
   if (Array.isArray(a)) {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) {
-      if (!deepEqual(a[i], b[i])) return false;
+      if (!deepEqual(a[i], b[i], visited)) return false;
     }
     return true;
   }
@@ -119,8 +134,8 @@ function deepEqual(a: any, b: any): boolean {
   if (keysA.length !== keysB.length) return false;
   
   for (const key of keysA) {
-    if (!keysB.includes(key)) return false;
-    if (!deepEqual(a[key], b[key])) return false;
+    if (!(key in b)) return false;
+    if (!deepEqual(a[key], b[key], visited)) return false;
   }
   
   return true;

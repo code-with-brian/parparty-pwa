@@ -3,12 +3,15 @@ import { mutation, query, action } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import Stripe from "stripe";
 
-// Initialize Stripe with secret key from environment
-const stripe = process.env.STRIPE_SECRET_KEY 
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2024-12-18.acacia",
-    })
-  : null;
+// Lazy initialization function for Stripe to avoid blocking type generation
+function getStripeClient(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("Stripe not configured - STRIPE_SECRET_KEY environment variable is required");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2024-12-18.acacia",
+  });
+}
 
 // Create payment intent for an order
 export const createPaymentIntent = action({
@@ -18,9 +21,7 @@ export const createPaymentIntent = action({
     savePaymentMethod: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    if (!stripe) {
-      throw new Error("Stripe not configured");
-    }
+    const stripe = getStripeClient();
     
     // Get the order details
     const order = await ctx.runQuery("foodOrders:getOrder", { orderId: args.orderId });
@@ -81,7 +82,12 @@ export const createPaymentIntent = action({
         paymentId,
       };
     } catch (error) {
-      console.error("Payment intent creation failed:", error);
+      console.error("Payment intent creation failed:", {
+        orderId: args.orderId,
+        paymentMethodId: args.paymentMethodId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       throw new Error(`Payment processing failed: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   },
@@ -94,9 +100,7 @@ export const confirmPaymentIntent = action({
     paymentMethodId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    if (!stripe) {
-      throw new Error("Stripe not configured");
-    }
+    const stripe = getStripeClient();
     
     try {
       const paymentIntent = await stripe.paymentIntents.confirm(args.paymentIntentId, {
@@ -150,9 +154,7 @@ export const createPaymentMethod = action({
     setAsDefault: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    if (!stripe) {
-      throw new Error("Stripe not configured");
-    }
+    const stripe = getStripeClient();
     
     try {
       // Get payment method details from Stripe
@@ -197,9 +199,7 @@ export const processRefund = action({
     })),
   },
   handler: async (ctx, args) => {
-    if (!stripe) {
-      throw new Error("Stripe not configured");
-    }
+    const stripe = getStripeClient();
     
     // Get payment details
     const payment = await ctx.runQuery("payments:getPayment", { paymentId: args.paymentId });

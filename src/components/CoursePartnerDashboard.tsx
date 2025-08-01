@@ -26,9 +26,9 @@ import {
   Eye,
   Share2
 } from 'lucide-react';
-// Temporarily disable Convex dataModel import to fix build issues
+import type { Id } from '../../convex/_generated/dataModel';
 // import { Id } from '../../../convex/_generated/dataModel';
-type Id<T> = string;
+
 
 interface CoursePartnerDashboardProps {
   courseId: Id<"courses">;

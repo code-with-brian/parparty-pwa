@@ -1,9 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-// Temporarily disable Convex dataModel import to fix build issues
-// import type { Id } from '../../convex/_generated/dataModel';
-type Id<T> = string;
+import type { Id } from '../../convex/_generated/dataModel';
 import { useState, useEffect, Suspense, lazy } from 'react';
 import { Users, Clock, Target, Trophy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';

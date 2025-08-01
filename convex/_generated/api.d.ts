@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as aiService from "../aiService.js";
+import type * as analytics from "../analytics.js";
 import type * as courses from "../courses.js";
 import type * as foodOrders from "../foodOrders.js";
 import type * as games from "../games.js";
@@ -24,6 +25,7 @@ import type * as payments from "../payments.js";
 import type * as photos from "../photos.js";
 import type * as seedSponsors from "../seedSponsors.js";
 import type * as socialPosts from "../socialPosts.js";
+import type * as socialSharing from "../socialSharing.js";
 import type * as sponsors from "../sponsors.js";
 import type * as userConversion from "../userConversion.js";
 import type * as users from "../users.js";
@@ -38,6 +40,7 @@ import type * as users from "../users.js";
  */
 declare const fullApi: ApiFromModules<{
   aiService: typeof aiService;
+  analytics: typeof analytics;
   courses: typeof courses;
   foodOrders: typeof foodOrders;
   games: typeof games;
@@ -48,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   photos: typeof photos;
   seedSponsors: typeof seedSponsors;
   socialPosts: typeof socialPosts;
+  socialSharing: typeof socialSharing;
   sponsors: typeof sponsors;
   userConversion: typeof userConversion;
   users: typeof users;

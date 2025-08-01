@@ -15,7 +15,7 @@ import type { PaymentMethod } from '../utils/paymentProcessor';
 // import type { Doc, Id } from '../../convex/_generated/dataModel.d.ts';
 
 // Temporary type definitions
-type Id<T> = string;
+
 import { useConvex } from 'convex/react';
 import toast from 'react-hot-toast';
 

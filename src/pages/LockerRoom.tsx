@@ -1,9 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-// Temporarily disable Convex dataModel import to fix build issues
-// import type { Id } from '../../convex/_generated/dataModel';
-type Id<T> = string;
+import type { Id } from '../../convex/_generated/dataModel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, Suspense, lazy } from 'react';
@@ -29,11 +27,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GolfLoader } from '@/components/ui/golf-loader';
 
 // Lazy load heavy components for better performance
-// TODO: Create these components when needed
-// const SponsorRewards = lazy(() => import('@/components/SponsorRewards'));
-// const RedemptionHistory = lazy(() => import('@/components/RedemptionHistory'));
-// const HighlightManager = lazy(() => import('@/components/HighlightManager'));
-// const UserConversion = lazy(() => import('@/components/UserConversion'));
+const SponsorRewards = lazy(() => import('@/components/SponsorRewards'));
+const RedemptionHistory = lazy(() => import('@/components/RedemptionHistory'));
+const HighlightManager = lazy(() => import('@/components/HighlightManager'));
+const UserConversion = lazy(() => import('@/components/UserConversion'));
 
 interface GameSummaryProps {
   game: any;
@@ -325,19 +322,15 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
         </Card>
       )}
 
-      {/* AI Highlights Manager - TODO: Implement HighlightManager component */}
-      {currentPlayerId && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-500" />
-              AI Highlights (Coming Soon)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-gray-500">AI-powered highlights will be available soon!</p>
-          </CardContent>
-        </Card>
+      {/* AI Highlights Manager */}
+      {currentPlayerId && gameData && (
+        <Suspense fallback={<GolfLoader text="Loading AI Highlights..." />}>
+          <HighlightManager 
+            gameId={gameData.game.id}
+            playerId={currentPlayerId}
+            className="w-full"
+          />
+        </Suspense>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { OfflineQueueManager } from "./OfflineQueueManager";
 import { ErrorRecoveryManager } from "./ErrorRecoveryManager";
 import { GameDataCache } from "./GameDataCache";
+import { logger } from "../utils/logger";
 
 export interface GuestSession {
   id: Id<"guests">;
@@ -166,7 +167,12 @@ export class GuestSessionManager {
       if (result.success) {
         // Clear local guest session data since it's now merged
         this.clearLocalSession();
-        console.log(`Successfully merged guest ${guestId} to user ${userId}`);
+        logger.info('Guest session successfully merged to user account', {
+          component: 'GuestSessionManager',
+          action: 'mergeToUser',
+          guestId,
+          userId,
+        });
       } else {
         throw new Error("Conversion failed");
       }
@@ -302,7 +308,11 @@ export class GuestSessionManager {
     if (localSession) {
       // If offline, return local session
       if (!navigator.onLine) {
-        console.log('Offline: Using cached guest session');
+        logger.debug('Using cached guest session due to offline mode', {
+          component: 'GuestSessionManager',
+          action: 'getGuestSession',
+          offline: true,
+        });
         return localSession;
       }
 
@@ -317,7 +327,11 @@ export class GuestSessionManager {
         if (this.errorRecovery) {
           await this.errorRecovery.handleError(error as Error, 'getCurrentSession');
         }
-        console.log('Server verification failed, using local session');
+        logger.warn('Server verification failed, using local session', {
+          component: 'GuestSessionManager',
+          action: 'getGuestSession',
+          error: 'verification_failed',
+        });
         return localSession;
       }
     }
@@ -349,7 +363,11 @@ export class GuestSessionManager {
     };
 
     this.storeSessionLocally(offlineSession);
-    console.log('Created offline guest session');
+    logger.info('Created offline guest session', {
+      component: 'GuestSessionManager',
+      action: 'createOfflineGuestSession',
+      deviceId: guestSession.deviceId,
+    });
     return offlineSession;
   }
 
@@ -516,7 +534,12 @@ export class GuestSessionManager {
       // If online request fails, try cached data
       const cachedData = GameDataCache.getCachedGameData(gameId);
       if (cachedData) {
-        console.log('Using cached game data due to network error');
+        logger.debug('Using cached game data due to network error', {
+          component: 'GuestSessionManager',
+          action: 'getGameData',
+          gameId,
+          error: 'network_error',
+        });
         
         // Merge with offline data if available
         if (this.offlineQueue) {
@@ -555,7 +578,12 @@ export class GuestSessionManager {
       // If online request fails, try cached state
       const cachedState = GameDataCache.getCachedGameState(gameId);
       if (cachedState) {
-        console.log('Using cached game state due to network error');
+        logger.debug('Using cached game state due to network error', {
+          component: 'GuestSessionManager',
+          action: 'getGameState',
+          gameId,
+          error: 'network_error',
+        });
         return cachedState;
       }
 

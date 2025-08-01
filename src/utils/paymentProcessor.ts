@@ -5,9 +5,7 @@
 
 import { loadStripe } from '@stripe/stripe-js';
 import type { Stripe, StripeElements, StripeCardElement } from '@stripe/stripe-js';
-// Temporarily disable Convex dataModel import to fix build issues
-// import type { Id } from '../../convex/_generated/dataModel';
-type Id<T> = string;
+import type { Id } from '../../convex/_generated/dataModel';
 
 // Initialize Stripe with publishable key
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_...');

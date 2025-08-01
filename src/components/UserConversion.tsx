@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-// Temporarily disable Convex dataModel import to fix build issues
-// import type { Id } from '../../convex/_generated/dataModel';
-type Id<T> = string;
+import type { Id } from '../../convex/_generated/dataModel';
+
+
 import { useGuestConversion } from '../contexts/AuthContext';
 import { GuestSessionManager } from '../lib/GuestSessionManager';
 import { Button } from './ui/button';
