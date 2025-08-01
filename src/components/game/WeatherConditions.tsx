@@ -1,19 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Wind, Thermometer, Droplets, Eye, Gauge, Sun, Cloud, CloudRain } from 'lucide-react';
-
-interface WeatherData {
-  temperature: number;
-  humidity: number;
-  windSpeed: number;
-  windDirection: number;
-  windGusts?: number;
-  pressure: number;
-  visibility: number;
-  conditions: 'sunny' | 'partly-cloudy' | 'cloudy' | 'overcast' | 'light-rain' | 'rain';
-  uvIndex: number;
-  dewPoint: number;
-}
+import { Wind, Thermometer, Droplets, Eye, Gauge, Sun, Cloud, CloudRain, CloudSnow, Zap, CloudDrizzle } from 'lucide-react';
+import type { WeatherData } from '@/types/weather';
 
 interface WeatherConditionsProps {
   weather: WeatherData;
@@ -43,8 +31,11 @@ export function WeatherConditions({ weather, compact = false, showPlayabilityInd
       case 'partly-cloudy': return <Cloud className="w-5 h-5 text-slate-300" />;
       case 'cloudy': return <Cloud className="w-5 h-5 text-slate-400" />;
       case 'overcast': return <Cloud className="w-5 h-5 text-slate-500" />;
-      case 'light-rain': 
+      case 'light-rain': return <CloudDrizzle className="w-5 h-5 text-blue-400" />;
       case 'rain': return <CloudRain className="w-5 h-5 text-blue-400" />;
+      case 'thunderstorm': return <Zap className="w-5 h-5 text-yellow-500" />;
+      case 'snow': return <CloudSnow className="w-5 h-5 text-blue-200" />;
+      case 'mist': return <Cloud className="w-5 h-5 text-slate-400" />;
       default: return <Sun className="w-5 h-5 text-yellow-400" />;
     }
   };
@@ -110,7 +101,7 @@ export function WeatherConditions({ weather, compact = false, showPlayabilityInd
         </div>
         <div className="flex items-center gap-1">
           {getConditionIcon()}
-          <span className="text-xs text-slate-400 capitalize">{weather.conditions.replace('-', ' ')}</span>
+          <span className="text-xs text-slate-400 capitalize">{weather.description || weather.conditions.replace('-', ' ')}</span>
         </div>
       </div>
     );
@@ -133,7 +124,7 @@ export function WeatherConditions({ weather, compact = false, showPlayabilityInd
             </div>
             <div>
               <h3 className="text-lg font-light text-white tracking-tight">Course Conditions</h3>
-              <p className="text-xs text-slate-400 capitalize">{weather.conditions.replace('-', ' ')}</p>
+              <p className="text-xs text-slate-400 capitalize">{weather.description || weather.conditions.replace('-', ' ')}</p>
             </div>
           </div>
           
@@ -250,8 +241,8 @@ export function WeatherConditions({ weather, compact = false, showPlayabilityInd
 
         {/* Data Timestamp */}
         <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between text-xs">
-          <span className="text-slate-500">Updated: {new Date().toLocaleTimeString()}</span>
-          <span className="text-slate-500">Local Conditions</span>
+          <span className="text-slate-500">Updated: {weather.lastUpdated ? weather.lastUpdated.toLocaleTimeString() : new Date().toLocaleTimeString()}</span>
+          <span className="text-slate-500">{weather.location || 'Local Conditions'}</span>
         </div>
       </div>
 

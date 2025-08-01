@@ -9,6 +9,7 @@ import { CompactHoleMap } from '@/components/game/CompactHoleMap';
 import { AICaddiePanel } from '@/components/game/AICaddiePanel';
 import { GPSRangefinder } from '@/components/game/GPSRangefinder';
 import { WeatherConditions } from '@/components/game/WeatherConditions';
+import { useGolfCourseWeather } from '@/hooks/useWeather';
 
 interface Player {
   _id: string;
@@ -36,6 +37,12 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
   const [view, setView] = useState<'scoring' | 'caddie'>('scoring');
   const [selectedClub, setSelectedClub] = useState<string | null>(null);
   const [showFullscreenMap, setShowFullscreenMap] = useState(false);
+
+  // Get real weather data for the golf course
+  const { weatherData, loading: weatherLoading, error: weatherError } = useGolfCourseWeather(
+    'Stanford Golf Course', // This should come from game/course data
+    { lat: 37.4419, lng: -122.1430 } // Golf course coordinates
+  );
 
   // Create score lookup
   const scoresByPlayerAndHole = scores.reduce((acc, score) => {
@@ -119,7 +126,8 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
     { name: 'Layup Zone', distance: 140, bearing: 45, type: 'layup' as const }
   ];
 
-  const mockWeatherData = {
+  // Use real weather data or fallback to mock data
+  const currentWeather = weatherData || {
     temperature: 72,
     humidity: 65,
     windSpeed: 8,
@@ -168,13 +176,13 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                 {/* Weather */}
                 <div className="flex items-center gap-2">
                   <Wind className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-300">{mockWeatherData.windSpeed}mph {mockWeatherData.windDirection < 90 ? 'N' : mockWeatherData.windDirection < 180 ? 'E' : mockWeatherData.windDirection < 270 ? 'S' : 'W'}</span>
+                  <span className="text-slate-300">{currentWeather.windSpeed}mph {currentWeather.windDirection < 90 ? 'N' : currentWeather.windDirection < 180 ? 'E' : currentWeather.windDirection < 270 ? 'S' : 'W'}</span>
                 </div>
                 
                 {/* Temperature */}
                 <div className="flex items-center gap-2">
                   <Thermometer className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-300">{mockWeatherData.temperature}°F</span>
+                  <span className="text-slate-300">{currentWeather.temperature}°F</span>
                 </div>
               </div>
               
@@ -310,6 +318,34 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
 
             {/* Caddie Content */}
             <div className="px-6 space-y-6">
+              {/* Current Weather Conditions */}
+              {!weatherLoading && currentWeather && (
+                <WeatherConditions 
+                  weather={currentWeather} 
+                  compact={false}
+                  showPlayabilityIndex={true}
+                />
+              )}
+
+              {/* Weather Loading State */}
+              {weatherLoading && (
+                <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-4">
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-400"></div>
+                    <span className="text-slate-400 text-sm">Loading weather conditions...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Weather Error State */}
+              {weatherError && (
+                <div className="bg-red-500/10 backdrop-blur-xl border border-red-500/20 rounded-3xl p-4">
+                  <div className="text-center">
+                    <span className="text-red-400 text-sm">Failed to load weather: {weatherError}</span>
+                  </div>
+                </div>
+              )}
+
               {/* Hole Map - Clickable for fullscreen */}
               <HoleMapView
                 holeData={mockHoleData}
@@ -333,10 +369,10 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                 par={mockHoleData.par}
                 distanceToPin={mockPlayerPosition.distanceToPin}
                 conditions={{
-                  windSpeed: mockWeatherData.windSpeed,
+                  windSpeed: currentWeather.windSpeed,
                   windDirection: 'SW',
-                  temperature: mockWeatherData.temperature,
-                  humidity: mockWeatherData.humidity,
+                  temperature: currentWeather.temperature,
+                  humidity: currentWeather.humidity,
                   greenSpeed: 'medium',
                   firmness: 'medium'
                 }}

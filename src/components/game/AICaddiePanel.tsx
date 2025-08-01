@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, MessageCircle, TrendingUp, Wind, Target, Zap, ChevronDown, ChevronUp } from 'lucide-react';
+import { Brain, MessageCircle, TrendingUp, Wind, Target, Zap, ChevronDown, ChevronUp, AlertCircle, RefreshCcw } from 'lucide-react';
+import { useAutoAICaddie } from '@/hooks/useAICaddie';
 
 interface CourseConditions {
   windSpeed: number;
-  windDirection: 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW';
+  windDirection: string;
   temperature: number;
   humidity: number;
   greenSpeed: 'slow' | 'medium' | 'fast';
@@ -20,14 +21,6 @@ interface PlayerStats {
   improvements: string[];
 }
 
-interface ClubRecommendation {
-  club: string;
-  confidence: number;
-  strategy: string;
-  reasoning: string;
-  alternativeClubs: string[];
-  riskLevel: 'low' | 'medium' | 'high';
-}
 
 interface AICaddiePanelProps {
   holeNumber: number;
@@ -52,105 +45,31 @@ export function AICaddiePanel({
 }: AICaddiePanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [chatMode, setChatMode] = useState(false);
-  const [recommendation, setRecommendation] = useState<ClubRecommendation | null>(null);
-  const [isThinking, setIsThinking] = useState(false);
 
-  // AI Caddie Logic
-  const generateRecommendation = (): ClubRecommendation => {
-    const windAdjustment = conditions.windSpeed * (
-      ['N', 'NE', 'NW'].includes(conditions.windDirection) ? 1.1 : 
-      ['S', 'SE', 'SW'].includes(conditions.windDirection) ? 0.9 : 1.0
-    );
-    
-    const effectiveDistance = Math.round(distanceToPin * windAdjustment);
-    const tempAdjustment = conditions.temperature < 50 ? 1.05 : conditions.temperature > 80 ? 0.95 : 1.0;
-    const finalDistance = Math.round(effectiveDistance * tempAdjustment);
-
-    // Club selection algorithm
-    let club: string;
-    let confidence: number;
-    let strategy: string;
-    let reasoning: string;
-    let alternativeClubs: string[];
-    let riskLevel: 'low' | 'medium' | 'high';
-
-    if (finalDistance <= 50) {
-      club = 'Lob Wedge';
-      confidence = 95;
-      strategy = 'Pin hunting';
-      reasoning = 'Short distance allows for aggressive pin attack with high spin control.';
-      alternativeClubs = ['Sand Wedge', 'Gap Wedge'];
-      riskLevel = 'low';
-    } else if (finalDistance <= 100) {
-      club = pinDifficulty === 'hard' ? 'Gap Wedge' : 'Sand Wedge';
-      confidence = 90;
-      strategy = pinDifficulty === 'hard' ? 'Center green' : 'Attack pin';
-      reasoning = `${finalDistance} yards is perfect wedge distance. ${pinDifficulty === 'hard' ? 'Pin position suggests conservative approach.' : 'Good pin position for aggressive play.'}`;
-      alternativeClubs = ['Pitching Wedge', 'Lob Wedge'];
-      riskLevel = pinDifficulty === 'hard' ? 'medium' : 'low';
-    } else if (finalDistance <= 130) {
-      club = 'Pitching Wedge';
-      confidence = 88;
-      strategy = 'Full swing control';
-      reasoning = `Full pitching wedge gives best distance control for ${finalDistance} yards.`;
-      alternativeClubs = ['9 Iron', 'Gap Wedge'];
-      riskLevel = 'low';
-    } else if (finalDistance <= 150) {
-      club = '9 Iron';
-      confidence = 85;
-      strategy = 'Smooth tempo';
-      reasoning = `9 iron with smooth tempo accounts for ${conditions.windSpeed}mph wind.`;
-      alternativeClubs = ['8 Iron', 'Pitching Wedge'];
-      riskLevel = 'medium';
-    } else if (finalDistance <= 170) {
-      club = '8 Iron';
-      confidence = 82;
-      strategy = 'Center green';
-      reasoning = `Longer iron requires center green target for best results.`;
-      alternativeClubs = ['7 Iron', '9 Iron'];
-      riskLevel = 'medium';
-    } else if (finalDistance <= 190) {
-      club = '7 Iron';
-      confidence = 78;
-      strategy = 'Two-putt zone';
-      reasoning = `Focus on getting to two-putt range rather than pin hunting.`;
-      alternativeClubs = ['6 Iron', '8 Iron'];
-      riskLevel = 'medium';
-    } else {
-      club = finalDistance <= 210 ? '6 Iron' : '5 Iron';
-      confidence = 70;
-      strategy = 'Get it on green';
-      reasoning = `Long approach - prioritize finding the green over pin position.`;
-      alternativeClubs = finalDistance <= 210 ? ['5 Iron', '7 Iron'] : ['Hybrid', '6 Iron'];
-      riskLevel = 'high';
-    }
-
-    // Adjust for hazards
-    const nearbyHazards = hazards.filter(h => Math.abs(h.distance - finalDistance) < 20);
-    if (nearbyHazards.length > 0) {
-      confidence -= 10;
-      riskLevel = riskLevel === 'low' ? 'medium' : 'high';
-      reasoning += ` Be aware of ${nearbyHazards[0].type} at ${nearbyHazards[0].distance} yards.`;
-    }
-
-    return {
-      club,
-      confidence: Math.max(confidence, 60),
-      strategy,
-      reasoning,
-      alternativeClubs,
-      riskLevel
-    };
+  // Use the AI service for recommendations
+  const holeInfo = {
+    number: holeNumber,
+    par,
+    distanceToPin,
+    pinDifficulty,
+    hazards,
   };
 
-  useEffect(() => {
-    setIsThinking(true);
-    const timer = setTimeout(() => {
-      setRecommendation(generateRecommendation());
-      setIsThinking(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [distanceToPin, conditions, pinDifficulty]);
+  const {
+    recommendation,
+    loading: isThinking,
+    error: aiError,
+    getRecommendation,
+    clearError,
+  } = useAutoAICaddie(holeInfo, conditions, playerStats, true);
+
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    if (aiError) {
+      clearError();
+    }
+    await getRecommendation(holeInfo, conditions, playerStats);
+  };
 
   const getRiskColor = (risk: 'low' | 'medium' | 'high') => {
     switch (risk) {
@@ -172,11 +91,11 @@ export function AICaddiePanel({
       
       <div className="relative p-4">
         {/* AI Caddie Header */}
-        <motion.button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center gap-3 mb-4"
+        <motion.div
+          className="w-full flex items-center gap-3 mb-4 cursor-pointer"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          onClick={() => setExpanded(!expanded)}
         >
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center shadow-lg relative">
             {isThinking ? (
@@ -190,12 +109,27 @@ export function AICaddiePanel({
             )}
           </div>
           <div className="flex-1 text-left">
-            <h3 className="text-lg font-light text-white tracking-tight">AI Caddie</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-light text-white tracking-tight">AI Caddie</h3>
+              {aiError && <AlertCircle className="w-4 h-4 text-red-400" />}
+            </div>
             <p className="text-xs text-slate-400 font-mono">
-              {isThinking ? 'Analyzing conditions...' : `${recommendation?.confidence}% confidence`}
+              {isThinking ? 'Analyzing with OpenAI...' : 
+               aiError ? 'Using fallback logic' :
+               `${recommendation?.confidence}% confidence`}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRefresh();
+              }}
+              className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              disabled={isThinking}
+            >
+              <RefreshCcw className={`w-4 h-4 text-cyan-400 ${isThinking ? 'animate-spin' : ''}`} />
+            </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -207,7 +141,7 @@ export function AICaddiePanel({
             </button>
             {expanded ? <ChevronUp className="w-5 h-5 text-slate-400" /> : <ChevronDown className="w-5 h-5 text-slate-400" />}
           </div>
-        </motion.button>
+        </motion.div>
 
         {/* Quick Recommendation */}
         {!isThinking && recommendation && (
@@ -262,9 +196,31 @@ export function AICaddiePanel({
               <div className="bg-white/[0.02] rounded-2xl p-4 border border-white/5">
                 <div className="flex items-center gap-2 mb-2">
                   <Brain className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm font-medium text-white">Strategy Analysis</span>
+                  <span className="text-sm font-medium text-white">
+                    {aiError ? 'Fallback Analysis' : 'AI Strategy Analysis'}
+                  </span>
+                  {!aiError && (
+                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">
+                      OpenAI Powered
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-slate-300 leading-relaxed">{recommendation.reasoning}</p>
+                
+                {/* Key Considerations (AI-enhanced feature) */}
+                {recommendation.keyConsiderations && recommendation.keyConsiderations.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <div className="text-xs text-slate-400 uppercase tracking-wide mb-2">Key Considerations</div>
+                    <ul className="space-y-1">
+                      {recommendation.keyConsiderations.map((consideration, index) => (
+                        <li key={index} className="text-xs text-slate-300 flex items-start gap-2">
+                          <span className="text-cyan-400 mt-1">•</span>
+                          {consideration}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               {/* Alternative Clubs */}
@@ -300,9 +256,14 @@ export function AICaddiePanel({
                     </div>
                   </div>
                   <div>
-                    <div className="text-slate-400">Temp Effect</div>
+                    <div className="text-slate-400">
+                      {recommendation.yardageAdjustment !== undefined ? 'AI Adjustment' : 'Temp Effect'}
+                    </div>
                     <div className="text-white font-mono">
-                      {conditions.temperature < 50 ? '+5y' : conditions.temperature > 80 ? '-5y' : 'Neutral'}
+                      {recommendation.yardageAdjustment !== undefined 
+                        ? `${recommendation.yardageAdjustment > 0 ? '+' : ''}${recommendation.yardageAdjustment}y`
+                        : (conditions.temperature < 50 ? '+5y' : conditions.temperature > 80 ? '-5y' : 'Neutral')
+                      }
                     </div>
                   </div>
                   <div>

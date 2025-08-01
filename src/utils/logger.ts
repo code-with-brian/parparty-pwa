@@ -25,7 +25,14 @@ class Logger {
 
   constructor() {
     this.isProduction = import.meta.env.PROD;
-    this.level = this.isProduction ? LogLevel.INFO : LogLevel.DEBUG;
+    // Set development to WARN level to reduce console noise
+    // Can be overridden with VITE_LOG_LEVEL environment variable
+    const envLogLevel = import.meta.env.VITE_LOG_LEVEL;
+    if (envLogLevel) {
+      this.level = LogLevel[envLogLevel as keyof typeof LogLevel] || LogLevel.WARN;
+    } else {
+      this.level = this.isProduction ? LogLevel.INFO : LogLevel.WARN;
+    }
   }
 
   private shouldLog(level: LogLevel): boolean {
@@ -107,6 +114,16 @@ class Logger {
       operation, 
       duration 
     });
+  }
+
+  // Runtime log level control
+  setLogLevel(level: LogLevel): void {
+    this.level = level;
+    console.log(`Log level changed to: ${LogLevel[level]}`);
+  }
+
+  getLogLevel(): LogLevel {
+    return this.level;
   }
 }
 

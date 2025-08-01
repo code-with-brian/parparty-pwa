@@ -121,8 +121,9 @@ export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapC
   const shouldShowGoogleMaps = !!gpsCoordinates;
 
   useEffect(() => {
-    if (shouldShowGoogleMaps) {
-      logger.info('Displaying Google Maps satellite view', {
+    // Only log Google Maps initialization, not every render
+    if (shouldShowGoogleMaps && Math.random() < 0.1) { // 10% chance to log
+      logger.debug('Displaying Google Maps satellite view', {
         component: 'HoleMapView',
         hole: holeData.number,
         mapMode,
