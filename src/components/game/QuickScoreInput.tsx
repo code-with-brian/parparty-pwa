@@ -8,8 +8,9 @@ interface QuickScoreInputProps {
   playerId: string;
   playerName: string;
   currentScore?: number;
+  currentPutts?: number;
   holeNumber: number;
-  onScoreUpdate: (playerId: string, holeNumber: number, strokes: number) => void;
+  onScoreUpdate: (playerId: string, holeNumber: number, strokes: number, putts?: number) => void;
   isEditing: boolean;
   onEditingChange: (editing: boolean) => void;
   compact?: boolean;
@@ -20,6 +21,7 @@ export function QuickScoreInput({
   playerId,
   playerName,
   currentScore,
+  currentPutts,
   holeNumber,
   onScoreUpdate,
   isEditing,
@@ -28,6 +30,7 @@ export function QuickScoreInput({
   premium = false
 }: QuickScoreInputProps) {
   const [tempScore, setTempScore] = useState(currentScore?.toString() || '4');
+  const [tempPutts, setTempPutts] = useState(currentPutts?.toString() || '2');
 
   const getScoreDisplay = (score?: number) => {
     if (!score) return '-';
@@ -57,22 +60,23 @@ export function QuickScoreInput({
   };
 
   const quickScores = [
-    { score: 2, label: '🦅 Eagle', color: 'from-yellow-500 to-amber-500' },
-    { score: 3, label: '🐦 Birdie', color: 'from-emerald-500 to-green-500' },
-    { score: 4, label: '⚪ Par', color: 'from-blue-500 to-cyan-500' },
-    { score: 5, label: '🟡 Bogey', color: 'from-orange-500 to-yellow-500' },
-    { score: 6, label: '🔴 Double', color: 'from-red-500 to-pink-500' },
-    { score: 7, label: '⚫ Triple+', color: 'from-purple-500 to-violet-500' }
+    { score: 2, label: '🦅 Eagle', color: 'from-yellow-500 to-amber-500', estimatedPutts: 1 },
+    { score: 3, label: '🐦 Birdie', color: 'from-emerald-500 to-green-500', estimatedPutts: 2 },
+    { score: 4, label: '⚪ Par', color: 'from-blue-500 to-cyan-500', estimatedPutts: 2 },
+    { score: 5, label: '🟡 Bogey', color: 'from-orange-500 to-yellow-500', estimatedPutts: 2 },
+    { score: 6, label: '🔴 Double', color: 'from-red-500 to-pink-500', estimatedPutts: 3 },
+    { score: 7, label: '⚫ Triple+', color: 'from-purple-500 to-violet-500', estimatedPutts: 3 }
   ];
 
-  const handleQuickScore = (score: number) => {
-    onScoreUpdate(playerId, holeNumber, score);
+  const handleQuickScore = (score: number, estimatedPutts?: number) => {
+    onScoreUpdate(playerId, holeNumber, score, estimatedPutts);
   };
 
   const handleManualSubmit = () => {
     const score = parseInt(tempScore);
-    if (score >= 1 && score <= 20) {
-      onScoreUpdate(playerId, holeNumber, score);
+    const putts = parseInt(tempPutts);
+    if (score >= 1 && score <= 20 && putts >= 0 && putts <= 10) {
+      onScoreUpdate(playerId, holeNumber, score, putts);
       onEditingChange(false);
     }
   };
@@ -81,6 +85,12 @@ export function QuickScoreInput({
     const current = parseInt(tempScore) || 4;
     const newScore = Math.max(1, Math.min(20, current + delta));
     setTempScore(newScore.toString());
+  };
+
+  const adjustPutts = (delta: number) => {
+    const current = parseInt(tempPutts) || 2;
+    const newPutts = Math.max(0, Math.min(10, current + delta));
+    setTempPutts(newPutts.toString());
   };
 
   if (isEditing) {
@@ -92,37 +102,77 @@ export function QuickScoreInput({
       >
         <div className="text-center text-green-400 font-semibold">Manual Score Entry</div>
         
-        {/* Manual Input */}
-        <div className="flex items-center justify-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => adjustScore(-1)}
-            className="w-10 h-10 p-0 rounded-full border-green-500/30 hover:bg-green-500/20 text-green-400"
-          >
-            <Minus className="w-4 h-4" />
-          </Button>
-          
-          <div className="w-20 h-12 rounded-xl gradient-party-button flex items-center justify-center">
-            <Input
-              type="number"
-              min="1"
-              max="20"
-              value={tempScore}
-              onChange={(e) => setTempScore(e.target.value)}
-              className="w-full h-full text-center text-2xl font-bold bg-transparent border-0 text-white"
-              autoFocus
-            />
+        {/* Score Input */}
+        <div className="space-y-3">
+          <div className="text-center">
+            <div className="text-xs text-slate-400 mb-2">Total Strokes</div>
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => adjustScore(-1)}
+                className="w-10 h-10 p-0 rounded-full border-green-500/30 hover:bg-green-500/20 text-green-400"
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+              
+              <div className="w-20 h-12 rounded-xl gradient-party-button flex items-center justify-center">
+                <Input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={tempScore}
+                  onChange={(e) => setTempScore(e.target.value)}
+                  className="w-full h-full text-center text-2xl font-bold bg-transparent border-0 text-white"
+                  autoFocus
+                />
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => adjustScore(1)}
+                className="w-10 h-10 p-0 rounded-full border-green-500/30 hover:bg-green-500/20 text-green-400"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => adjustScore(1)}
-            className="w-10 h-10 p-0 rounded-full border-green-500/30 hover:bg-green-500/20 text-green-400"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
+
+          {/* Putt Input */}
+          <div className="text-center">
+            <div className="text-xs text-slate-400 mb-2">Putts</div>
+            <div className="flex items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => adjustPutts(-1)}
+                className="w-8 h-8 p-0 rounded-full border-cyan-500/30 hover:bg-cyan-500/20 text-cyan-400"
+              >
+                <Minus className="w-3 h-3" />
+              </Button>
+              
+              <div className="w-16 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                <Input
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={tempPutts}
+                  onChange={(e) => setTempPutts(e.target.value)}
+                  className="w-full h-full text-center text-lg font-semibold bg-transparent border-0 text-cyan-400"
+                />
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => adjustPutts(1)}
+                className="w-8 h-8 p-0 rounded-full border-cyan-500/30 hover:bg-cyan-500/20 text-cyan-400"
+              >
+                <Plus className="w-3 h-3" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}
@@ -170,20 +220,23 @@ export function QuickScoreInput({
           {/* Minimal Quick Scores */}
           {!isEditing && (
             <div className="flex flex-col gap-1">
-              {[3, 4, 5].map((score) => (
-                <motion.button
-                  key={score}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => handleQuickScore(score)}
-                  className={`w-8 h-6 rounded-lg font-medium text-xs transition-all ${
-                    currentScore === score
-                      ? 'bg-white/20 text-white border border-white/30'
-                      : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  {score}
-                </motion.button>
-              ))}
+              {[3, 4, 5].map((score) => {
+                const quickScore = quickScores.find(qs => qs.score === score);
+                return (
+                  <motion.button
+                    key={score}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => handleQuickScore(score, quickScore?.estimatedPutts)}
+                    className={`w-8 h-6 rounded-lg font-medium text-xs transition-all ${
+                      currentScore === score
+                        ? 'bg-white/20 text-white border border-white/30'
+                        : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {score}
+                  </motion.button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -209,7 +262,7 @@ export function QuickScoreInput({
               <motion.button
                 key={item.score}
                 whileTap={{ scale: 0.9 }}
-                onClick={() => handleQuickScore(item.score)}
+                onClick={() => handleQuickScore(item.score, item.estimatedPutts)}
                 className={`w-8 h-8 rounded-lg font-bold text-xs transition-all border ${
                   currentScore === item.score
                     ? `bg-gradient-to-r ${item.color} text-white border-white/30`
@@ -253,7 +306,7 @@ export function QuickScoreInput({
               key={item.score}
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.02 }}
-              onClick={() => handleQuickScore(item.score)}
+              onClick={() => handleQuickScore(item.score, item.estimatedPutts)}
               className={`p-3 rounded-xl font-semibold text-sm transition-all border ${
                 currentScore === item.score
                   ? `bg-gradient-to-r ${item.color} text-white border-white/30 shadow-lg`
@@ -262,6 +315,7 @@ export function QuickScoreInput({
             >
               <div className="text-lg">{item.score}</div>
               <div className="text-xs opacity-90">{item.label}</div>
+              <div className="text-xs opacity-70 text-cyan-400">{item.estimatedPutts} putts</div>
             </motion.button>
           ))}
         </div>

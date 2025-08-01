@@ -21,12 +21,13 @@ interface Score {
   playerId: string;
   holeNumber: number;
   strokes: number;
+  putts?: number;
 }
 
 interface ScorecardScreenProps {
   players: Player[];
   scores: Score[];
-  onScoreUpdate: (playerId: string, holeNumber: number, strokes: number) => void;
+  onScoreUpdate: (playerId: string, holeNumber: number, strokes: number, putts?: number) => void;
 }
 
 export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScreenProps) {
@@ -37,16 +38,16 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
   // Create score lookup
   const scoresByPlayerAndHole = scores.reduce((acc, score) => {
     const key = `${score.playerId}-${score.holeNumber}`;
-    acc[key] = score.strokes;
+    acc[key] = { strokes: score.strokes, putts: score.putts };
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, { strokes: number; putts?: number }>);
 
   // Calculate completed holes for progress tracking
   const holesCompleted = new Set<number>();
   for (let hole = 1; hole <= 18; hole++) {
     const allPlayersHaveScore = players.every(player => {
       const key = `${player._id}-${hole}`;
-      return scoresByPlayerAndHole[key] !== undefined;
+      return scoresByPlayerAndHole[key]?.strokes !== undefined;
     });
     if (allPlayersHaveScore) {
       holesCompleted.add(hole);
@@ -137,6 +138,9 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
     strengths: ['Putting', 'Short Game'],
     improvements: ['Driving Accuracy', 'Long Irons']
   };
+
+  // Get current hole par (defaulting to 4 if not found)
+  const currentHolePar = mockHoleData.par;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
@@ -239,7 +243,7 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                 >
                   {sortedPlayers.map((player, index) => {
                     const scoreKey = `${player._id}-${selectedHole}`;
-                    const currentScore = scoresByPlayerAndHole[scoreKey];
+                    const scoreData = scoresByPlayerAndHole[scoreKey];
                     
                     return (
                       <motion.div
@@ -251,10 +255,12 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                         <PartyScoreCard
                           player={player}
                           currentHole={selectedHole}
-                          currentScore={currentScore}
+                          currentScore={scoreData?.strokes}
+                          currentPutts={scoreData?.putts}
                           onScoreUpdate={onScoreUpdate}
                           rank={index + 1}
                           isLeader={index === 0}
+                          par={currentHolePar}
                         />
                       </motion.div>
                     );
