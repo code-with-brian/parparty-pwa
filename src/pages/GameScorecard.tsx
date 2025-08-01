@@ -17,6 +17,8 @@ import { ScorecardScreen } from '@/components/screens/ScorecardScreen';
 import { SocialScreen } from '@/components/screens/SocialScreen';
 import { CameraScreen } from '@/components/screens/CameraScreen';
 import { FoodBeverageScreen } from '@/components/screens/FoodBeverageScreen';
+import { LeaderboardScreen } from '@/components/screens/LeaderboardScreen';
+import { ClubEventsScreen } from '@/components/screens/ClubEventsScreen';
 import { notificationManager } from '@/utils/notificationManager';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 
@@ -26,7 +28,7 @@ export default function GameScorecard() {
   const navigate = useNavigate();
   const [selectedHole, setSelectedHole] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'scorecard' | 'social' | 'camera' | 'orders' | 'players'>('scorecard');
+  const [activeTab, setActiveTab] = useState<'scorecard' | 'social' | 'leaderboard' | 'orders' | 'events'>('scorecard');
   const [showCamera, setShowCamera] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<Id<"players"> | null>(null);
 
@@ -238,14 +240,7 @@ export default function GameScorecard() {
       footer={
         <BottomTabNavigation
           activeTab={activeTab}
-          onTabChange={(tab) => {
-            if (tab === 'camera') {
-              setShowCamera(true);
-            } else {
-              setActiveTab(tab as any);
-            }
-          }}
-          onCameraPress={() => setShowCamera(true)}
+          onTabChange={(tab) => setActiveTab(tab as any)}
         />
       }
     >
@@ -264,15 +259,19 @@ export default function GameScorecard() {
           onScoreUpdate={handleScoreUpdate}
         />
       ) : activeTab === 'social' ? (
-        <SocialScreen />
+        <SocialScreen onCameraPress={() => setShowCamera(true)} />
+      ) : activeTab === 'leaderboard' ? (
+        <LeaderboardScreen 
+          players={gameState.players}
+          currentPlayerId={currentPlayerId || undefined}
+        />
       ) : activeTab === 'orders' ? (
         <FoodBeverageScreen />
-      ) : activeTab === 'players' ? (
-        <div className="p-4">
-          <div className="text-center py-8 text-gray-500">
-            Players view coming soon...
-          </div>
-        </div>
+      ) : activeTab === 'events' ? (
+        <ClubEventsScreen 
+          course={gameState.game.courseId ? undefined : undefined} // TODO: Add course data query
+          gameId={gameId}
+        />
       ) : (
         <div className="p-4">
           <div className="text-center py-8 text-gray-500">

@@ -29,10 +29,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GolfLoader } from '@/components/ui/golf-loader';
 
 // Lazy load heavy components for better performance
-const SponsorRewards = lazy(() => import('@/components/SponsorRewards'));
-const RedemptionHistory = lazy(() => import('@/components/RedemptionHistory'));
-const HighlightManager = lazy(() => import('@/components/HighlightManager'));
-const UserConversion = lazy(() => import('@/components/UserConversion'));
+// TODO: Create these components when needed
+// const SponsorRewards = lazy(() => import('@/components/SponsorRewards'));
+// const RedemptionHistory = lazy(() => import('@/components/RedemptionHistory'));
+// const HighlightManager = lazy(() => import('@/components/HighlightManager'));
+// const UserConversion = lazy(() => import('@/components/UserConversion'));
 
 interface GameSummaryProps {
   game: any;
@@ -83,18 +84,18 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
   return (
     <div className="space-y-6">
       {/* Game Header */}
-      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
-        <CardHeader className="text-center pb-4">
+      <div className="bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl">
+        <div className="text-center pb-4 p-6">
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
-              <Trophy className="w-8 h-8 text-yellow-600" />
+            <div className="w-16 h-16 bg-gradient-to-br from-yellow-400/20 to-yellow-600/20 rounded-full flex items-center justify-center">
+              <Trophy className="w-8 h-8 text-yellow-400" />
             </div>
           </div>
-          <CardTitle className="text-2xl text-green-800 mb-2">
+          <h2 className="text-2xl font-bold text-white mb-2">
             🎉 Round Complete!
-          </CardTitle>
-          <p className="text-green-700 font-medium">{game.name}</p>
-          <div className="flex items-center justify-center gap-4 text-sm text-gray-600 mt-2">
+          </h2>
+          <p className="text-cyan-400 font-medium">{game.name}</p>
+          <div className="flex items-center justify-center gap-4 text-sm text-slate-400 mt-2">
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
               {gameDuration} minutes
@@ -108,59 +109,58 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
               {game.format}
             </div>
           </div>
-        </CardHeader>
-      </Card>
+        </div>
+      </div>
 
       {/* Current Player Highlight */}
       {currentPlayer && (
-        <Card className="border-blue-200 bg-blue-50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-800">
+        <div className="bg-cyan-500/10 backdrop-blur-xl border-2 border-cyan-500/30 rounded-3xl">
+          <div className="p-6">
+            <h3 className="flex items-center gap-2 text-cyan-400 text-lg font-semibold mb-4">
               <Medal className="w-5 h-5" />
               Your Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
+            <div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-cyan-400">
                   #{currentPlayerPosition}
                 </div>
-                <div className="text-sm text-gray-600">Final Position</div>
+                <div className="text-sm text-slate-400">Final Position</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
+                <div className="text-2xl font-bold text-green-400">
                   {currentPlayer.totalStrokes}
                 </div>
-                <div className="text-sm text-gray-600">Total Strokes</div>
+                <div className="text-sm text-slate-400">Total Strokes</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
+                <div className="text-2xl font-bold text-purple-400">
                   {currentPlayer.averageScore}
                 </div>
-                <div className="text-sm text-gray-600">Avg per Hole</div>
+                <div className="text-sm text-slate-400">Avg per Hole</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
+                <div className="text-2xl font-bold text-orange-400">
                   {currentPlayer.holesPlayed}
                 </div>
-                <div className="text-sm text-gray-600">Holes Played</div>
+                <div className="text-sm text-slate-400">Holes Played</div>
               </div>
             </div>
             
             {currentPlayer.bestHole && (
-              <div className="mt-4 p-3 bg-white rounded-lg">
+              <div className="mt-4 p-3 bg-white/5 rounded-2xl border border-white/10">
                 <div className="flex justify-between items-center">
                   <div>
-                    <div className="font-medium text-green-700">Best Hole</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="font-medium text-green-400">Best Hole</div>
+                    <div className="text-sm text-slate-400">
                       Hole {currentPlayer.bestHole.holeNumber} - {currentPlayer.bestHole.strokes} strokes
                     </div>
                   </div>
                   {currentPlayer.worstHole && (
                     <div className="text-right">
-                      <div className="font-medium text-red-700">Toughest Hole</div>
-                      <div className="text-sm text-gray-600">
+                      <div className="font-medium text-red-400">Toughest Hole</div>
+                      <div className="text-sm text-slate-400">
                         Hole {currentPlayer.worstHole.holeNumber} - {currentPlayer.worstHole.strokes} strokes
                       </div>
                     </div>
@@ -168,55 +168,55 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Final Leaderboard */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-yellow-500" />
+      <div className="bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl">
+        <div className="p-6">
+          <h3 className="flex items-center gap-2 text-white text-lg font-semibold mb-4">
+            <Trophy className="w-5 h-5 text-yellow-400" />
             Final Leaderboard
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </h3>
+          <div>
           <div className="space-y-3">
             {playerStats.map((player, index) => (
               <div
                 key={player._id}
-                className={`flex items-center justify-between p-4 rounded-lg ${
+                className={`flex items-center justify-between p-4 rounded-2xl ${
                   index === 0 
-                    ? 'bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200' 
+                    ? 'bg-gradient-to-r from-yellow-400/20 to-yellow-600/20 border border-yellow-400/30' 
                     : index === 1
-                    ? 'bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200'
+                    ? 'bg-gradient-to-r from-slate-400/20 to-slate-600/20 border border-slate-400/30'
                     : index === 2
-                    ? 'bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200'
-                    : 'bg-gray-50'
-                } ${player._id === currentPlayerId ? 'ring-2 ring-blue-300' : ''}`}
+                    ? 'bg-gradient-to-r from-amber-600/20 to-amber-800/20 border border-amber-600/30'
+                    : 'bg-white/5 border border-white/10'
+                } ${player._id === currentPlayerId ? 'ring-2 ring-cyan-400/50' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
                     index === 0 
-                      ? 'bg-yellow-500 text-white' 
+                      ? 'bg-yellow-400 text-black' 
                       : index === 1
-                      ? 'bg-gray-400 text-white'
+                      ? 'bg-slate-300 text-black'
                       : index === 2
-                      ? 'bg-orange-500 text-white'
-                      : 'bg-gray-300 text-gray-700'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-slate-600 text-white'
                   }`}>
                     {index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
                   </div>
                   <div>
-                    <div className="font-medium flex items-center gap-2">
+                    <div className="font-medium flex items-center gap-2 text-white">
                       {player.name}
                       {player._id === currentPlayerId && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                        <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-full">
                           You
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-slate-400">
                       {player.holesPlayed} holes • Avg {player.averageScore}
                       {player.playerPhotos.length > 0 && (
                         <span className="ml-2">📸 {player.playerPhotos.length}</span>
@@ -229,25 +229,24 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
                 </div>
                 
                 <div className="text-right">
-                  <div className="text-xl font-bold">{player.totalStrokes}</div>
-                  <div className="text-sm text-gray-500">strokes</div>
+                  <div className="text-xl font-bold text-white">{player.totalStrokes}</div>
+                  <div className="text-sm text-slate-500">strokes</div>
                 </div>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+          </div>
+        </div>
+      </div>
 
       {/* Game Highlights */}
       {photos.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Camera className="w-5 h-5 text-blue-500" />
+        <div className="bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl">
+          <div className="p-6">
+            <h3 className="flex items-center gap-2 text-white text-lg font-semibold mb-4">
+              <Camera className="w-5 h-5 text-blue-400" />
               Round Highlights
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {photos.slice(0, 8).map((photo) => (
                 <div key={photo._id} className="relative group">
@@ -273,8 +272,8 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* F&B Orders Summary */}
@@ -326,14 +325,19 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
         </Card>
       )}
 
-      {/* AI Highlights Manager */}
+      {/* AI Highlights Manager - TODO: Implement HighlightManager component */}
       {currentPlayerId && (
-        <Suspense fallback={<GolfLoader size="md" text="Loading highlights..." />}>
-          <HighlightManager
-            gameId={game._id}
-            playerId={currentPlayerId}
-          />
-        </Suspense>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-500" />
+              AI Highlights (Coming Soon)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-500">AI-powered highlights will be available soon!</p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
@@ -356,38 +360,38 @@ function AccountCreationCTA({ gameData, currentPlayerId, onCreateAccount }: Acco
     gameData.photos.filter((p: any) => p.playerId === currentPlayerId) : [];
 
   return (
-    <Card className="border-green-200 bg-gradient-to-r from-green-50 to-blue-50">
-      <CardHeader className="text-center">
+    <div className="bg-cyan-500/10 backdrop-blur-xl border-2 border-cyan-500/30 rounded-3xl">
+      <div className="text-center p-6">
         <div className="flex justify-center mb-4">
-          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-            <UserPlus className="w-6 h-6 text-green-600" />
+          <div className="w-12 h-12 bg-cyan-400/20 rounded-full flex items-center justify-center">
+            <UserPlus className="w-6 h-6 text-cyan-400" />
           </div>
         </div>
-        <CardTitle className="text-xl text-green-800">
+        <h2 className="text-xl font-bold text-white">
           Save This Round Forever!
-        </CardTitle>
-        <p className="text-green-700 mt-2">
+        </h2>
+        <p className="text-cyan-400 mt-2">
           Create your ParParty account to keep your golf memories and stats
         </p>
-      </CardHeader>
-      <CardContent>
-        <div className="bg-white rounded-lg p-4 mb-6">
-          <h4 className="font-medium text-gray-800 mb-3">What you'll save:</h4>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+      </div>
+      <div className="p-6">
+        <div className="bg-white/5 rounded-2xl p-4 mb-6 border border-white/10">
+          <h4 className="font-medium text-white mb-3">What you'll save:</h4>
+          <div className="grid grid-cols-2 gap-4 text-sm text-slate-300">
             <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-blue-500" />
+              <Target className="w-4 h-4 text-blue-400" />
               <span>{playerScores.length} hole scores</span>
             </div>
             <div className="flex items-center gap-2">
-              <Camera className="w-4 h-4 text-purple-500" />
+              <Camera className="w-4 h-4 text-purple-400" />
               <span>{playerPhotos.length} photos</span>
             </div>
             <div className="flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-yellow-500" />
+              <Trophy className="w-4 h-4 text-yellow-400" />
               <span>Game achievements</span>
             </div>
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-500" />
+              <TrendingUp className="w-4 h-4 text-green-400" />
               <span>Performance stats</span>
             </div>
           </div>
@@ -410,11 +414,11 @@ function AccountCreationCTA({ gameData, currentPlayerId, onCreateAccount }: Acco
           </div>
         </div>
 
-        <div className="mt-4 text-xs text-gray-500 text-center">
+        <div className="mt-4 text-xs text-slate-500 text-center">
           Free account • No spam • Keep your golf memories
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -511,56 +515,62 @@ export default function LockerRoom() {
 
   if (!gameId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <div className="text-red-600 mb-4">Invalid game ID</div>
-            <Button onClick={() => navigate('/')}>Go Home</Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl">
+          <div className="p-6 text-center">
+            <div className="text-red-400 mb-4">Invalid game ID</div>
+            <Button onClick={() => navigate('/')} className="bg-cyan-500 hover:bg-cyan-600 text-white">Go Home</Button>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!gameData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <div className="animate-spin w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <div>Loading results...</div>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl">
+          <div className="p-6 text-center">
+            <div className="animate-spin w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <div className="text-white">Loading results...</div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (gameData.game.status !== "finished") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-6 text-center">
-            <Clock className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">Game Still Active</h2>
-            <p className="text-gray-600 mb-4">This game hasn't finished yet.</p>
-            <Button onClick={() => navigate(`/game/${gameId}`)}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl">
+          <div className="p-6 text-center">
+            <Clock className="w-12 h-12 text-blue-400 mx-auto mb-4" />
+            <h2 className="text-xl font-bold mb-2 text-white">Game Still Active</h2>
+            <p className="text-slate-400 mb-4">This game hasn't finished yet.</p>
+            <Button 
+              onClick={() => navigate(`/game/${gameId}`)}
+              className="bg-cyan-500 hover:bg-cyan-600 text-white"
+            >
               Back to Game
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
-      <div className="w-full max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden p-4">
+      {/* Background pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.01)_0%,transparent_70%)]" />
+      
+      <div className="relative w-full max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Button
             variant="ghost"
             onClick={() => navigate(`/game/${gameId}`)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 text-white hover:bg-white/10"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Game
@@ -570,7 +580,7 @@ export default function LockerRoom() {
             <Button
               variant="outline"
               onClick={handleShareResults}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 text-white border-white/20 hover:bg-white/10"
             >
               <Share2 className="w-4 h-4" />
               Share
@@ -579,9 +589,9 @@ export default function LockerRoom() {
         </div>
 
         {/* Tab Navigation */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+        <div className="mb-6 bg-white/[0.02] backdrop-blur-xl border border-white/10 rounded-3xl">
+          <div className="p-4">
+            <div className="flex space-x-1 bg-white/5 p-1 rounded-2xl">
               <Button
                 variant={activeTab === 'summary' ? 'default' : 'ghost'}
                 size="sm"
@@ -612,8 +622,8 @@ export default function LockerRoom() {
                 </Button>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Tab Content */}
         {activeTab === 'summary' && (
@@ -640,40 +650,44 @@ export default function LockerRoom() {
         )}
 
         {activeTab === 'rewards' && currentPlayerId && (
-          <Suspense fallback={<GolfLoader size="md" text="Loading rewards..." />}>
-            <SponsorRewards
-              gameId={gameId as Id<"games">}
-              playerId={currentPlayerId}
-              onRewardRedeemed={(redemption) => {
-                console.log('Reward redeemed:', redemption);
-                // Could show a success message or update UI
-              }}
-            />
-          </Suspense>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Gift className="w-5 h-5 text-green-500" />
+                Sponsor Rewards (Coming Soon)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">Sponsor rewards and redemptions will be available soon!</p>
+            </CardContent>
+          </Card>
         )}
 
         {activeTab === 'history' && currentPlayerId && (
-          <Suspense fallback={<GolfLoader size="md" text="Loading history..." />}>
-            <RedemptionHistory playerId={currentPlayerId} />
-          </Suspense>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-500" />
+                Redemption History (Coming Soon)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">Your redemption history will be available soon!</p>
+            </CardContent>
+          </Card>
         )}
 
         {/* User Conversion Modal */}
         {showAccountCreation && currentGuestId && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <Suspense fallback={
-                <div className="p-8 text-center">
-                  <GolfLoader size="md" text="Loading account creation..." />
-                </div>
-              }>
-                <UserConversion
-                  guestId={currentGuestId}
-                  onConversionComplete={handleConversionComplete}
-                  onCancel={handleConversionCancel}
-                  showBenefits={true}
-                />
-              </Suspense>
+              <div className="p-8 text-center">
+                <h3 className="text-xl font-bold mb-4">Account Creation</h3>
+                <p className="text-gray-600 mb-6">Account conversion feature coming soon!</p>
+                <Button onClick={handleConversionCancel} variant="outline">
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         )}

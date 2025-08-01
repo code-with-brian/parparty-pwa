@@ -93,7 +93,11 @@ const mockPosts: SocialPost[] = [
   }
 ];
 
-export function SocialScreen() {
+interface SocialScreenProps {
+  onCameraPress?: () => void;
+}
+
+export function SocialScreen({ onCameraPress }: SocialScreenProps = {}) {
   const [posts, setPosts] = useState<SocialPost[]>(mockPosts);
   const [selectedPost, setSelectedPost] = useState<string | null>(null);
   const [newPostContent, setNewPostContent] = useState('');
@@ -377,7 +381,10 @@ export function SocialScreen() {
                 
                 <div className="flex items-center justify-between mt-4">
                   <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                    <button 
+                      onClick={onCameraPress}
+                      className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                    >
                       <Camera className="w-5 h-5 text-slate-400" />
                     </button>
                     <button className="p-2 hover:bg-white/10 rounded-full transition-colors">

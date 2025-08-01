@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Target, Users, MessageSquare, Utensils, Camera } from 'lucide-react';
+import { Target, Trophy, MessageSquare, Utensils, Calendar } from 'lucide-react';
 
 interface Tab {
   id: string;
@@ -11,20 +11,18 @@ interface Tab {
 interface BottomTabNavigationProps {
   activeTab: string;
   onTabChange: (tabId: string) => void;
-  onCameraPress?: () => void;
 }
 
 export function BottomTabNavigation({ 
   activeTab, 
-  onTabChange, 
-  onCameraPress 
+  onTabChange
 }: BottomTabNavigationProps) {
   const tabs: Tab[] = [
     { id: 'scorecard', label: 'Scorecard', icon: Target },
     { id: 'social', label: 'Social', icon: MessageSquare, badge: 3 },
-    { id: 'camera', label: 'Camera', icon: Camera },
+    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
     { id: 'orders', label: 'F&B', icon: Utensils },
-    { id: 'players', label: 'Players', icon: Users },
+    { id: 'events', label: 'Events', icon: Calendar },
   ];
 
   return (
@@ -41,13 +39,7 @@ export function BottomTabNavigation({
             return (
               <motion.button
                 key={tab.id}
-                onClick={() => {
-                  if (tab.id === 'camera' && onCameraPress) {
-                    onCameraPress();
-                  } else {
-                    onTabChange(tab.id);
-                  }
-                }}
+                onClick={() => onTabChange(tab.id)}
                 className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all duration-300 min-w-0 flex-1 relative ${
                   isActive 
                     ? 'bg-white/10' 
