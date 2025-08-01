@@ -14,14 +14,11 @@ import { MobileLayout } from '@/components/layout/MobileLayout';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
 import { BottomTabNavigation } from '@/components/layout/BottomTabNavigation';
 import { ScorecardScreen } from '@/components/screens/ScorecardScreen';
+import { SocialScreen } from '@/components/screens/SocialScreen';
+import { CameraScreen } from '@/components/screens/CameraScreen';
+import { FoodBeverageScreen } from '@/components/screens/FoodBeverageScreen';
 import { notificationManager } from '@/utils/notificationManager';
 import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
-
-// Lazy load heavy components for better performance
-const SocialFeed = lazy(() => import('@/components/SocialFeed'));
-const PhotoCapture = lazy(() => import('@/components/PhotoCapture'));
-const FoodOrderingMenu = lazy(() => import('@/components/FoodOrderingMenu'));
-const OrderStatus = lazy(() => import('@/components/OrderStatus'));
 
 
 export default function GameScorecard() {
@@ -29,9 +26,8 @@ export default function GameScorecard() {
   const navigate = useNavigate();
   const [selectedHole, setSelectedHole] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'scorecard' | 'social' | 'orders'>('scorecard');
-  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
-  const [showFoodMenu, setShowFoodMenu] = useState(false);
+  const [activeTab, setActiveTab] = useState<'scorecard' | 'social' | 'camera' | 'orders' | 'players'>('scorecard');
+  const [showCamera, setShowCamera] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<Id<"players"> | null>(null);
 
   // Real-time game state subscription with optimization
@@ -242,8 +238,14 @@ export default function GameScorecard() {
       footer={
         <BottomTabNavigation
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab as any)}
-          onCameraPress={() => setShowPhotoCapture(true)}
+          onTabChange={(tab) => {
+            if (tab === 'camera') {
+              setShowCamera(true);
+            } else {
+              setActiveTab(tab as any);
+            }
+          }}
+          onCameraPress={() => setShowCamera(true)}
         />
       }
     >
@@ -262,32 +264,14 @@ export default function GameScorecard() {
           onScoreUpdate={handleScoreUpdate}
         />
       ) : activeTab === 'social' ? (
-        <div className="p-4">
-          <Suspense fallback={<GolfLoader size="md" text="Loading social feed..." />}>
-            <SocialFeed
-              gameId={gameId as Id<"games">}
-              currentPlayerId={currentPlayerId}
-            />
-          </Suspense>
-        </div>
+        <SocialScreen />
       ) : activeTab === 'orders' ? (
+        <FoodBeverageScreen />
+      ) : activeTab === 'players' ? (
         <div className="p-4">
-          {currentPlayerId && (
-            <>
-              <button
-                onClick={() => setShowFoodMenu(true)}
-                className="w-full mb-6 p-4 gradient-party-button text-white rounded-xl font-semibold hover:scale-105 transition-all duration-300 shadow-lg shadow-green-500/25"
-              >
-                🍔 Order Food & Beverages
-              </button>
-              <Suspense fallback={<GolfLoader size="md" text="Loading orders..." />}>
-                <OrderStatus
-                  playerId={currentPlayerId}
-                  gameId={gameId as Id<"games">}
-                />
-              </Suspense>
-            </>
-          )}
+          <div className="text-center py-8 text-gray-500">
+            Players view coming soon...
+          </div>
         </div>
       ) : (
         <div className="p-4">
@@ -297,49 +281,12 @@ export default function GameScorecard() {
         </div>
       )}
 
-      {/* Photo Capture Modal */}
-      {showPhotoCapture && currentPlayerId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Suspense fallback={
-            <div className="bg-white rounded-lg p-8">
-              <GolfLoader size="md" text="Loading camera..." />
-            </div>
-          }>
-            <PhotoCapture
-              gameId={gameId as Id<"games">}
-              playerId={currentPlayerId}
-              holeNumber={1}
-              onPhotoShared={() => {
-                setShowPhotoCapture(false);
-                setActiveTab('social');
-              }}
-              onClose={() => setShowPhotoCapture(false)}
-            />
-          </Suspense>
-        </div>
-      )}
-
-      {/* Food Ordering Menu Modal */}
-      {showFoodMenu && currentPlayerId && gameState.game.courseId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Suspense fallback={
-            <div className="bg-white rounded-lg p-8">
-              <GolfLoader size="md" text="Loading menu..." />
-            </div>
-          }>
-            <FoodOrderingMenu
-              gameId={gameId as Id<"games">}
-              playerId={currentPlayerId}
-              courseId={gameState.game.courseId}
-              currentHole={1}
-              onClose={() => setShowFoodMenu(false)}
-              onOrderPlaced={() => {
-                setShowFoodMenu(false);
-                setActiveTab('orders');
-              }}
-            />
-          </Suspense>
-        </div>
+      {/* Camera Modal */}
+      {showCamera && (
+        <CameraScreen
+          onClose={() => setShowCamera(false)}
+          currentHole={selectedHole}
+        />
       )}
     </MobileLayout>
   );

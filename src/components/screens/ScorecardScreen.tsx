@@ -34,6 +34,7 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
   const [selectedHole, setSelectedHole] = useState(1);
   const [view, setView] = useState<'scoring' | 'caddie'>('scoring');
   const [selectedClub, setSelectedClub] = useState<string | null>(null);
+  const [showFullscreenMap, setShowFullscreenMap] = useState(false);
 
   // Create score lookup
   const scoresByPlayerAndHole = scores.reduce((acc, score) => {
@@ -212,7 +213,7 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
             >
               <div className="flex items-center justify-center gap-2">
                 <Brain className="w-4 h-4" />
-                AI Caddie
+                Caddie
               </div>
             </button>
           </div>
@@ -270,7 +271,7 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
             </div>
           </div>
         ) : (
-          /* AI Caddie View */
+          /* Caddie View */
           <div className="space-y-6">
             {/* Hole Navigation */}
             <div className="px-6">
@@ -281,23 +282,17 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
               />
             </div>
 
-            {/* Weather Conditions - Compact */}
-            <div className="px-6">
-              <WeatherConditions weather={mockWeatherData} compact={true} showPlayabilityIndex={false} />
-            </div>
-
-            {/* AI Caddie Intelligence */}
-            <div className="px-6 grid grid-cols-1 gap-6">
-              {/* GPS Rangefinder - Simplified */}
-              <GPSRangefinder
-                currentPosition={{ lat: 40.7589, lng: -73.9851 }}
-                targets={mockRangefinderTargets}
-                selectedTarget="Pin"
-                onTargetSelect={(target) => console.log('Selected target:', target)}
-                accuracy="high"
+            {/* Caddie Content */}
+            <div className="px-6 space-y-6">
+              {/* Hole Map - Clickable for fullscreen */}
+              <HoleMapView
+                holeData={mockHoleData}
+                playerPosition={mockPlayerPosition}
+                onPositionSelect={(position) => console.log('Selected position:', position)}
+                onMapClick={() => setShowFullscreenMap(true)}
               />
 
-              {/* AI Caddie Panel - Main Feature */}
+              {/* Caddie Suggestion */}
               <AICaddiePanel
                 holeNumber={selectedHole}
                 par={mockHoleData.par}
@@ -319,26 +314,46 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                 }))}
                 onClubSelect={setSelectedClub}
               />
-
-              {/* Optional: Hole Map for Context */}
-              <HoleMapView
-                holeData={mockHoleData}
-                playerPosition={mockPlayerPosition}
-                onPositionSelect={(position) => console.log('Selected position:', position)}
-              />
-            </div>
-
-            {/* Quick Back to Scoring */}
-            <div className="px-6">
-              <button
-                onClick={() => setView('scoring')}
-                className="w-full py-3 bg-white/5 border border-white/10 rounded-2xl text-white font-medium hover:bg-white/10 transition-all"
-              >
-                ← Back to Scoring
-              </button>
             </div>
           </div>
         )}
+
+        {/* Fullscreen Map Modal */}
+        <AnimatePresence>
+          {showFullscreenMap && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/95 backdrop-blur-xl z-50 flex items-center justify-center"
+              onClick={() => setShowFullscreenMap(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                className="w-full h-full max-w-4xl max-h-4xl p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="w-full h-full">
+                  <HoleMapView
+                    holeData={mockHoleData}
+                    playerPosition={mockPlayerPosition}
+                    onPositionSelect={(position) => console.log('Selected position:', position)}
+                  />
+                </div>
+                
+                {/* Close button */}
+                <button
+                  onClick={() => setShowFullscreenMap(false)}
+                  className="absolute top-6 right-6 w-10 h-10 bg-black/50 backdrop-blur-sm border border-white/20 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-all"
+                >
+                  ✕
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

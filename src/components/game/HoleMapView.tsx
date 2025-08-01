@@ -37,9 +37,10 @@ interface HoleMapViewProps {
   holeData: HoleData;
   playerPosition: PlayerPosition;
   onPositionSelect?: (position: { x: number; y: number }) => void;
+  onMapClick?: () => void;
 }
 
-export function HoleMapView({ holeData, playerPosition, onPositionSelect }: HoleMapViewProps) {
+export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapClick }: HoleMapViewProps) {
   const [selectedTarget, setSelectedTarget] = useState<{ x: number; y: number } | null>(null);
   const [mapMode, setMapMode] = useState<'overview' | 'green' | '3d'>('overview');
 
@@ -69,48 +70,21 @@ export function HoleMapView({ holeData, playerPosition, onPositionSelect }: Hole
   };
 
   return (
-    <div className="relative overflow-hidden bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl">
+    <div 
+      className="relative overflow-hidden bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl cursor-pointer hover:bg-white/[0.05] transition-all"
+      onClick={onMapClick}
+    >
       <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-blue-500/5" />
       
       <div className="relative p-4">
-        {/* Hole Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-sm">{holeData.number}</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-light text-white tracking-tight">
-                Hole {holeData.number} • Par {holeData.par}
-              </h3>
-              <p className="text-xs text-slate-400 font-mono">{holeData.yardage} yards</p>
-            </div>
-          </div>
-          
-          {/* Map Mode Toggle */}
-          <div className="flex gap-1 bg-white/5 rounded-xl p-1">
-            {(['overview', 'green', '3d'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setMapMode(mode)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  mapMode === mode 
-                    ? 'bg-cyan-500/20 text-cyan-400' 
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {mode.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
 
         {/* Interactive Hole Map */}
         <div className="relative bg-green-900/20 rounded-2xl overflow-hidden border border-green-500/20">
           <svg
             viewBox="0 0 400 300"
-            className="w-full h-48 cursor-crosshair"
+            className="w-full h-48"
             onClick={(e) => {
+              e.stopPropagation(); // Prevent triggering the full screen map
               const rect = e.currentTarget.getBoundingClientRect();
               const x = ((e.clientX - rect.left) / rect.width) * 400;
               const y = ((e.clientY - rect.top) / rect.height) * 300;
@@ -237,32 +211,6 @@ export function HoleMapView({ holeData, playerPosition, onPositionSelect }: Hole
           </svg>
         </div>
 
-        {/* Course Intelligence Panel */}
-        <div className="grid grid-cols-2 gap-3 mt-4">
-          <div className="bg-white/[0.02] rounded-2xl p-3 border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-              <Target className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs text-slate-400 uppercase tracking-wide">To Pin</span>
-            </div>
-            <div className="text-xl font-light text-white">{playerPosition.distanceToPin}y</div>
-            <div className={`text-xs ${getPinDifficultyColor(holeData.pinPosition.difficulty)}`}>
-              {holeData.pinPosition.description}
-            </div>
-          </div>
-
-          <div className="bg-white/[0.02] rounded-2xl p-3 border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-              <Navigation className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-slate-400 uppercase tracking-wide">Strategy</span>
-            </div>
-            <div className="text-xl font-light text-white">
-              {playerPosition.club || 'Select Club'}
-            </div>
-            <div className="text-xs text-slate-400">
-              {selectedTarget ? `${Math.round(calculateDistance(playerPosition, selectedTarget))}y selected` : 'Tap to target'}
-            </div>
-          </div>
-        </div>
 
         {/* Hazard Distances */}
         {holeData.hazards.some(h => h.carryDistance) && (
