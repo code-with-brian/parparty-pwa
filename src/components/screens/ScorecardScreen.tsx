@@ -318,7 +318,47 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
 
             {/* Caddie Content */}
             <div className="px-6 space-y-6">
-              {/* Current Weather Conditions */}
+              {/* Hole Map - Clickable for fullscreen */}
+              <HoleMapView
+                holeData={mockHoleData}
+                playerPosition={mockPlayerPosition}
+                onPositionSelect={(position) => console.log('Selected position:', position)}
+                onMapClick={() => setShowFullscreenMap(true)}
+                gpsCoordinates={{
+                  teeBox: { lat: 37.4419, lng: -122.1430 }, // Example: Stanford Golf Course
+                  pin: { lat: 37.4425, lng: -122.1435 },
+                  playerLocation: { lat: 37.4422, lng: -122.1432 },
+                  hazards: [
+                    { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
+                    { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
+                  ],
+                }}
+              />
+
+              {/* AI Caddie Suggestions */}
+              <AICaddiePanel
+                holeNumber={selectedHole}
+                par={mockHoleData.par}
+                distanceToPin={mockPlayerPosition.distanceToPin}
+                conditions={{
+                  windSpeed: currentWeather.windSpeed,
+                  windDirection: 'SW',
+                  temperature: currentWeather.temperature,
+                  humidity: currentWeather.humidity,
+                  greenSpeed: 'medium',
+                  firmness: 'medium'
+                }}
+                playerStats={mockPlayerStats}
+                pinDifficulty={mockHoleData.pinPosition.difficulty}
+                hazards={mockHoleData.hazards.map(h => ({
+                  type: h.type,
+                  distance: h.carryDistance || 0,
+                  carry: h.carryDistance || 0
+                }))}
+                onClubSelect={setSelectedClub}
+              />
+
+              {/* Course Conditions */}
               {!weatherLoading && currentWeather && (
                 <WeatherConditions 
                   weather={currentWeather} 
@@ -345,46 +385,6 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                   </div>
                 </div>
               )}
-
-              {/* Hole Map - Clickable for fullscreen */}
-              <HoleMapView
-                holeData={mockHoleData}
-                playerPosition={mockPlayerPosition}
-                onPositionSelect={(position) => console.log('Selected position:', position)}
-                onMapClick={() => setShowFullscreenMap(true)}
-                gpsCoordinates={{
-                  teeBox: { lat: 37.4419, lng: -122.1430 }, // Example: Stanford Golf Course
-                  pin: { lat: 37.4425, lng: -122.1435 },
-                  playerLocation: { lat: 37.4422, lng: -122.1432 },
-                  hazards: [
-                    { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
-                    { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
-                  ],
-                }}
-              />
-
-              {/* Caddie Suggestion */}
-              <AICaddiePanel
-                holeNumber={selectedHole}
-                par={mockHoleData.par}
-                distanceToPin={mockPlayerPosition.distanceToPin}
-                conditions={{
-                  windSpeed: currentWeather.windSpeed,
-                  windDirection: 'SW',
-                  temperature: currentWeather.temperature,
-                  humidity: currentWeather.humidity,
-                  greenSpeed: 'medium',
-                  firmness: 'medium'
-                }}
-                playerStats={mockPlayerStats}
-                pinDifficulty={mockHoleData.pinPosition.difficulty}
-                hazards={mockHoleData.hazards.map(h => ({
-                  type: h.type,
-                  distance: h.carryDistance || 0,
-                  carry: h.carryDistance || 0
-                }))}
-                onClubSelect={setSelectedClub}
-              />
             </div>
           </div>
         )}

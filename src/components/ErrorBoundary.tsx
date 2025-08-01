@@ -68,8 +68,12 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-700 flex items-center justify-center p-4">
           <Card className="w-full max-w-md mx-auto bg-white/95 backdrop-blur-sm shadow-xl">
             <CardHeader className="text-center">
-              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <AlertTriangle className="w-8 h-8 text-red-600" />
+              <div className="mx-auto mb-4">
+                <img
+                  src="https://media.giphy.com/media/l4FGzTRVr14I4Ja00/giphy.gif"
+                  alt="Golf kid falling"
+                  className="w-32 h-24 mx-auto rounded-lg object-cover"
+                />
               </div>
               <CardTitle className="text-xl text-gray-900">
                 Oops! Something went wrong

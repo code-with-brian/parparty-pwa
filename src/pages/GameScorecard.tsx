@@ -1,8 +1,8 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useBeforeUnload } from 'react-router-dom';
 import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy, useCallback } from 'react';
 import { Users, Clock, Target, Trophy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ export default function GameScorecard() {
   const [activeTab, setActiveTab] = useState<'scorecard' | 'social' | 'leaderboard' | 'orders' | 'events'>('scorecard');
   const [showCamera, setShowCamera] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<Id<"players"> | null>(null);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
   // Real-time game state subscription with optimization
   const gameState = useOptimizedQuery(
@@ -73,6 +74,31 @@ export default function GameScorecard() {
       }
     }
   }, [gameState]);
+
+  // Handle browser back button and page refresh
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      event.preventDefault();
+      setShowQuitConfirm(true);
+      // Push the current state back to prevent navigation
+      window.history.pushState(null, '', window.location.pathname);
+    };
+
+    // Push initial state to enable back button detection
+    window.history.pushState(null, '', window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  // Handle page refresh/close
+  useBeforeUnload(
+    useCallback(() => {
+      return "Are you sure you want to leave? Your game progress will be saved, but you'll need to rejoin.";
+    }, [])
+  );
 
   const detectAchievements = async (playerId: Id<"players">, holeNumber: number, strokes: number) => {
     // Achievement detection is now handled automatically by the backend
@@ -133,6 +159,15 @@ export default function GameScorecard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to finish game');
     }
+  };
+
+  const handleQuitGame = () => {
+    setShowQuitConfirm(false);
+    navigate('/');
+  };
+
+  const handleCancelQuit = () => {
+    setShowQuitConfirm(false);
   };
 
   if (!gameId) {
@@ -215,7 +250,7 @@ export default function GameScorecard() {
         <NavigationHeader
           title={gameState.game.name}
           subtitle={`${gameState.players.length} players • ${gameState.game.status}`}
-          onBack={() => navigate(-1)}
+          onBack={() => setShowQuitConfirm(true)}
           onShare={() => {
             if (navigator.share) {
               navigator.share({
@@ -284,6 +319,43 @@ export default function GameScorecard() {
           onClose={() => setShowCamera(false)}
           currentHole={selectedHole}
         />
+      )}
+
+      {/* Quit Confirmation Dialog */}
+      {showQuitConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.8, opacity: 0 }}
+            className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 w-full max-w-sm"
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
+                <Trophy className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">Leave Game?</h3>
+              <p className="text-slate-300 mb-6 leading-relaxed">
+                Are you sure you want to quit this game? Your scores will be saved and you can rejoin later.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleCancelQuit}
+                  variant="outline"
+                  className="flex-1 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                >
+                  Stay
+                </Button>
+                <Button
+                  onClick={handleQuitGame}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                >
+                  Quit Game
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       )}
     </MobileLayout>
   );

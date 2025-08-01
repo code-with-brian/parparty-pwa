@@ -366,7 +366,7 @@ export class GuestSessionManager {
     logger.info('Created offline guest session', {
       component: 'GuestSessionManager',
       action: 'createOfflineGuestSession',
-      deviceId: guestSession.deviceId,
+      deviceId: offlineSession.deviceId,
     });
     return offlineSession;
   }

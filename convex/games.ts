@@ -869,3 +869,78 @@ export const addPlayer = mutation({
     return await addPlayerToGame(ctx, args);
   },
 });
+
+// Get user's active/unfinished games
+export const getUserActiveGames = query({
+  args: {
+    userId: v.optional(v.id("users")),
+    guestId: v.optional(v.id("guests")),
+  },
+  handler: async (ctx, args) => {
+    try {
+      if (!args.userId && !args.guestId) {
+        return [];
+      }
+
+      // Find all players for this user/guest
+      let players;
+      if (args.userId) {
+        players = await ctx.db
+          .query("players")
+          .withIndex("by_user", (q) => q.eq("userId", args.userId))
+          .collect();
+      } else if (args.guestId) {
+        players = await ctx.db
+          .query("players")
+          .withIndex("by_guest", (q) => q.eq("guestId", args.guestId))
+          .collect();
+      }
+
+      if (!players || players.length === 0) {
+        return [];
+      }
+
+      // Get unique game IDs
+      const gameIds = Array.from(new Set(players.map(p => p.gameId)));
+
+      // Get games that are still active
+      const activeGames = await Promise.all(
+        gameIds.map(async (gameId) => {
+          const game = await ctx.db.get(gameId);
+          if (game && game.status !== "finished") {
+            // Get basic game info with player count
+            const gamePlayers = await ctx.db
+              .query("players")
+              .withIndex("by_game", (q) => q.eq("gameId", gameId))
+              .collect();
+
+            // Get user's player info in this game
+            const userPlayer = players.find(p => p.gameId === gameId);
+
+            return {
+              _id: game._id,
+              name: game.name,
+              status: game.status,
+              startedAt: game.startedAt,
+              playerCount: gamePlayers.length,
+              userPlayer: userPlayer ? {
+                _id: userPlayer._id,
+                name: userPlayer.name,
+                position: userPlayer.position
+              } : null
+            };
+          }
+          return null;
+        })
+      );
+
+      // Filter out null results and sort by most recent
+      return activeGames
+        .filter(game => game !== null)
+        .sort((a, b) => b.startedAt - a.startedAt);
+    } catch (error) {
+      console.error("Error getting user active games:", error);
+      return [];
+    }
+  },
+});

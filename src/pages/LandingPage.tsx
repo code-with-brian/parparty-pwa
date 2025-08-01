@@ -1,13 +1,44 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+// Temporarily disable Convex dataModel import to fix build issues
+// import type { Id } from '../../convex/_generated/dataModel';
+type Id<T> = string;
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Users, QrCode, Plus, ArrowRight } from 'lucide-react';
-
+import { Users, QrCode, Plus, ArrowRight, PlayCircle, Clock } from 'lucide-react';
 export default function LandingPage() {
   const navigate = useNavigate();
   const [showJoinOptions, setShowJoinOptions] = useState(false);
+
+  // Get guest session from localStorage to check for active games
+  const getGuestIdFromStorage = () => {
+    try {
+      const stored = localStorage.getItem('parparty_guest_session');
+      if (stored) {
+        const session = JSON.parse(stored);
+        return session.id;
+      }
+    } catch (error) {
+      console.error('Error parsing guest session:', error);
+    }
+    return null;
+  };
+
+  const guestId = getGuestIdFromStorage();
+  
+  // Query for active games for this user/guest (only if we have a guestId)
+  const activeGames = useQuery(
+    api.games.getUserActiveGames,
+    guestId 
+      ? { guestId: guestId as Id<"guests"> }
+      : "skip"
+  );
+
+  // Get the most recent active game
+  const lastActiveGame = activeGames && activeGames.length > 0 ? activeGames[0] : null;
 
   return (
     <div className="min-h-screen gradient-party-hero relative overflow-hidden">
@@ -64,6 +95,39 @@ export default function LandingPage() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="w-full max-w-md space-y-4"
         >
+          {/* Continue Last Round Card - Only show if there's an active game */}
+          {lastActiveGame && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <Card className="glass-party card-hover border-cyan-500/40 bg-gradient-to-r from-cyan-500/10 to-blue-500/10">
+                <CardContent className="p-6">
+                  <Button
+                    onClick={() => navigate(`/game/${lastActiveGame._id}`)}
+                    className="w-full h-16 bg-gradient-to-r from-cyan-500/80 to-blue-500/80 hover:from-cyan-500 hover:to-blue-500 text-white hover:scale-105 font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 border border-cyan-400/30"
+                  >
+                    <PlayCircle className="w-6 h-6 mr-3" />
+                    Continue Last Round
+                    <ArrowRight className="w-5 h-5 ml-3" />
+                  </Button>
+                  <div className="text-center text-sm text-slate-300 mt-3 flex items-center justify-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    <span>
+                      "{lastActiveGame.name}" • {lastActiveGame.playerCount} players • {lastActiveGame.status}
+                    </span>
+                  </div>
+                  {lastActiveGame.userPlayer && (
+                    <p className="text-center text-xs text-cyan-300 mt-1">
+                      Playing as "{lastActiveGame.userPlayer.name}"
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Start a Round Card */}
           <Card className="glass-party card-hover border-green-500/30">
             <CardContent className="p-6">
