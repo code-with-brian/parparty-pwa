@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Target, Navigation, Zap, Droplets } from 'lucide-react';
+import { MapPin, Target, Navigation, Zap, Droplets, Satellite, Map } from 'lucide-react';
+import { GoogleMap } from '../GoogleMap';
+import { logger } from '@/utils/logger';
 
 interface HazardData {
   type: 'water' | 'bunker' | 'trees' | 'rough';
@@ -38,11 +40,18 @@ interface HoleMapViewProps {
   playerPosition: PlayerPosition;
   onPositionSelect?: (position: { x: number; y: number }) => void;
   onMapClick?: () => void;
+  // Optional GPS coordinates for real Google Maps integration
+  gpsCoordinates?: {
+    teeBox: { lat: number; lng: number };
+    pin: { lat: number; lng: number };
+    playerLocation?: { lat: number; lng: number };
+    hazards?: Array<{ lat: number; lng: number; type: HazardData['type']; name: string }>;
+  };
 }
 
-export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapClick }: HoleMapViewProps) {
+export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapClick, gpsCoordinates }: HoleMapViewProps) {
   const [selectedTarget, setSelectedTarget] = useState<{ x: number; y: number } | null>(null);
-  const [mapMode, setMapMode] = useState<'overview' | 'green' | '3d'>('overview');
+  const [mapMode, setMapMode] = useState<'satellite' | 'hybrid'>('satellite');
 
   const getHazardColor = (type: HazardData['type']) => {
     switch (type) {
@@ -69,6 +78,59 @@ export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapC
     return Math.sqrt(dx * dx + dy * dy) * 2; // Scale factor for yards
   };
 
+  // Generate Google Maps markers if GPS coordinates are available
+  const googleMapMarkers = gpsCoordinates ? [
+    // Tee box marker
+    {
+      position: gpsCoordinates.teeBox,
+      title: `Hole ${holeData.number} Tee`,
+      info: `<div class="p-2"><strong>Hole ${holeData.number} Tee</strong><br/>Par ${holeData.par} • ${holeData.yardage} yards</div>`,
+      icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
+    },
+    // Pin marker
+    {
+      position: gpsCoordinates.pin,
+      title: `Hole ${holeData.number} Pin`,
+      info: `<div class="p-2"><strong>Hole ${holeData.number} Pin</strong><br/>${holeData.pinPosition.description}</div>`,
+      icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+    },
+    // Player location marker
+    ...(gpsCoordinates.playerLocation ? [{
+      position: gpsCoordinates.playerLocation,
+      title: 'Your Position',
+      info: '<div class="p-2"><strong>Your Current Position</strong></div>',
+      icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+    }] : []),
+    // Hazard markers
+    ...(gpsCoordinates.hazards?.map(hazard => ({
+      position: { lat: hazard.lat, lng: hazard.lng },
+      title: hazard.name,
+      info: `<div class="p-2"><strong>${hazard.name}</strong><br/>Type: ${hazard.type}</div>`,
+      icon: hazard.type === 'water' ? 'https://maps.google.com/mapfiles/ms/icons/blue.png' : 
+            hazard.type === 'bunker' ? 'https://maps.google.com/mapfiles/ms/icons/yellow.png' :
+            'https://maps.google.com/mapfiles/ms/icons/tree.png',
+    })) || []),
+  ] : [];
+
+  // Determine map center for Google Maps
+  const googleMapCenter = gpsCoordinates ? 
+    gpsCoordinates.teeBox : 
+    { lat: 39.8283, lng: -98.5795 };
+
+  // Always show Google Maps if GPS coordinates are available
+  const shouldShowGoogleMaps = !!gpsCoordinates;
+
+  useEffect(() => {
+    if (shouldShowGoogleMaps) {
+      logger.info('Displaying Google Maps satellite view', {
+        component: 'HoleMapView',
+        hole: holeData.number,
+        mapMode,
+        hasGPS: !!gpsCoordinates,
+      });
+    }
+  }, [shouldShowGoogleMaps, holeData.number, mapMode, gpsCoordinates]);
+
   return (
     <div 
       className="relative overflow-hidden bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl cursor-pointer hover:bg-white/[0.05] transition-all"
@@ -77,140 +139,85 @@ export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapC
       <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-blue-500/5" />
       
       <div className="relative p-4">
-
-        {/* Interactive Hole Map */}
-        <div className="relative bg-green-900/20 rounded-2xl overflow-hidden border border-green-500/20">
-          <svg
-            viewBox="0 0 400 300"
-            className="w-full h-48"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent triggering the full screen map
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = ((e.clientX - rect.left) / rect.width) * 400;
-              const y = ((e.clientY - rect.top) / rect.height) * 300;
-              setSelectedTarget({ x, y });
-              onPositionSelect?.({ x, y });
-            }}
-          >
-            {/* Fairway */}
-            <path
-              d={`M ${holeData.fairwayPath.map(p => `${p.x},${p.y}`).join(' L ')}`}
-              className="fill-green-600/40 stroke-green-500/60"
-              strokeWidth="2"
-            />
-            
-            {/* Green */}
-            <ellipse
-              cx={holeData.pinPosition.x}
-              cy={holeData.pinPosition.y}
-              rx="25"
-              ry="20"
-              className="fill-green-500/30 stroke-green-400"
-              strokeWidth="2"
-            />
-            
-            {/* Hazards */}
-            {holeData.hazards.map((hazard, index) => (
-              <g key={index}>
-                <rect
-                  x={hazard.coordinates.x}
-                  y={hazard.coordinates.y}
-                  width={hazard.coordinates.width}
-                  height={hazard.coordinates.height}
-                  className={getHazardColor(hazard.type)}
-                  strokeWidth="1"
-                  rx="4"
-                />
-                {hazard.carryDistance && (
-                  <text
-                    x={hazard.coordinates.x + hazard.coordinates.width / 2}
-                    y={hazard.coordinates.y + hazard.coordinates.height / 2}
-                    className="fill-white text-xs font-mono"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                  >
-                    {hazard.carryDistance}y
-                  </text>
-                )}
-              </g>
-            ))}
-            
-            {/* Tee Box */}
-            <rect
-              x={holeData.teePosition.x - 8}
-              y={holeData.teePosition.y - 4}
-              width="16"
-              height="8"
-              className="fill-slate-600 stroke-slate-500"
-              strokeWidth="1"
-              rx="2"
-            />
-            
-            {/* Pin */}
-            <g>
-              <circle
-                cx={holeData.pinPosition.x}
-                cy={holeData.pinPosition.y}
-                r="3"
-                className="fill-yellow-400"
-              />
-              <line
-                x1={holeData.pinPosition.x}
-                y1={holeData.pinPosition.y - 15}
-                x2={holeData.pinPosition.x}
-                y2={holeData.pinPosition.y}
-                className="stroke-yellow-400"
-                strokeWidth="1"
-              />
-            </g>
-            
-            {/* Player Position */}
-            <g>
-              <circle
-                cx={playerPosition.x}
-                cy={playerPosition.y}
-                r="6"
-                className="fill-cyan-400 animate-pulse"
-              />
-              <circle
-                cx={playerPosition.x}
-                cy={playerPosition.y}
-                r="12"
-                className="fill-none stroke-cyan-400 stroke-2 opacity-50 animate-ping"
-              />
-            </g>
-            
-            {/* Distance Line */}
-            <line
-              x1={playerPosition.x}
-              y1={playerPosition.y}
-              x2={holeData.pinPosition.x}
-              y2={holeData.pinPosition.y}
-              className="stroke-cyan-400/50 stroke-dashed stroke-1"
-            />
-            
-            {/* Selected Target */}
-            {selectedTarget && (
-              <g>
-                <circle
-                  cx={selectedTarget.x}
-                  cy={selectedTarget.y}
-                  r="8"
-                  className="fill-none stroke-red-400 stroke-2 animate-pulse"
-                />
-                <text
-                  x={selectedTarget.x}
-                  y={selectedTarget.y - 15}
-                  className="fill-white text-xs font-mono"
-                  textAnchor="middle"
-                >
-                  {Math.round(calculateDistance(playerPosition, selectedTarget))}y
-                </text>
-              </g>
-            )}
-          </svg>
+        {/* Map Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-white">Hole {holeData.number}</h3>
+            <span className="text-xs text-slate-400">Par {holeData.par} • {holeData.yardage}y</span>
+          </div>
+          
+          {gpsCoordinates && (
+            <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMapMode('satellite');
+                }}
+                className={`px-2 py-1 rounded text-xs transition-all ${
+                  mapMode === 'satellite'
+                    ? 'bg-white/20 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Satellite className="w-3 h-3" />
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMapMode('hybrid');
+                }}
+                className={`px-2 py-1 rounded text-xs transition-all ${
+                  mapMode === 'hybrid'
+                    ? 'bg-white/20 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Navigation className="w-3 h-3" />
+              </button>
+            </div>
+          )}
         </div>
 
+        {/* Satellite Map Display */}
+        {shouldShowGoogleMaps ? (
+          <div className="relative rounded-2xl overflow-hidden border border-green-500/20">
+            <GoogleMap
+              center={googleMapCenter}
+              zoom={17}
+              markers={googleMapMarkers}
+              mapTypeId={mapMode === 'satellite' ? 'satellite' as any : 'hybrid' as any}
+              onMapClick={(event) => {
+                if (event.latLng) {
+                  const lat = event.latLng.lat();
+                  const lng = event.latLng.lng();
+                  logger.debug('Google Maps clicked', {
+                    component: 'HoleMapView',
+                    lat,
+                    lng,
+                  });
+                  // Convert GPS to local coordinates for compatibility
+                  onPositionSelect?.({ x: lat * 1000, y: lng * 1000 });
+                }
+              }}
+              style={{ width: '100%', height: '200px' }}
+              gestureHandling="greedy"
+              zoomControl={false}
+              mapTypeControl={false}
+              streetViewControl={false}
+              fullscreenControl={false}
+            />
+          </div>
+        ) : (
+          /* No GPS Data Available */
+          <div className="relative bg-gray-800/40 rounded-2xl overflow-hidden border border-gray-500/20 h-48 flex items-center justify-center">
+            <div className="text-center text-gray-400">
+              <Satellite className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Satellite view not available</p>
+              <p className="text-xs">GPS coordinates required</p>
+            </div>
+          </div>
+        )}
 
         {/* Hazard Distances */}
         {holeData.hazards.some(h => h.carryDistance) && (

@@ -24,6 +24,7 @@
     "@convex-dev/agent": "^0.1.16",
     "@convex-dev/auth": "^0.0.87",
     "@convex-dev/geospatial": "^0.1.9",
+    "@googlemaps/js-api-loader": "^1.16.10",
     "@ionic/react": "^8.6.5",
     "@radix-ui/react-slot": "^1.2.3",
     "@stripe/react-stripe-js": "^3.8.1",

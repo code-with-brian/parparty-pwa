@@ -5,6 +5,7 @@ import { Trophy, MapPin, Brain, Wind, Thermometer } from 'lucide-react';
 import { HoleNavigator } from '@/components/game/HoleNavigator';
 import { PartyScoreCard } from '@/components/game/PartyScoreCard';
 import { HoleMapView } from '@/components/game/HoleMapView';
+import { CompactHoleMap } from '@/components/game/CompactHoleMap';
 import { AICaddiePanel } from '@/components/game/AICaddiePanel';
 import { GPSRangefinder } from '@/components/game/GPSRangefinder';
 import { WeatherConditions } from '@/components/game/WeatherConditions';
@@ -231,6 +232,31 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
               />
             </div>
 
+            {/* Compact Hole Map */}
+            <div className="px-6">
+              <CompactHoleMap
+                holeData={{
+                  ...mockHoleData,
+                  hazards: [
+                    { type: 'water', carryDistance: 185, name: 'Water Hazard' },
+                    { type: 'bunker', carryDistance: 220, name: 'Front Bunker' },
+                    { type: 'bunker', carryDistance: 240, name: 'Right Bunker' }
+                  ]
+                }}
+                gpsCoordinates={{
+                  teeBox: { lat: 37.4419, lng: -122.1430 },
+                  pin: { lat: 37.4425, lng: -122.1435 },
+                  playerLocation: { lat: 37.4422, lng: -122.1432 },
+                  hazards: [
+                    { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
+                    { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
+                  ],
+                }}
+                distanceToPin={mockPlayerPosition.distanceToPin}
+                onMapClick={() => setShowFullscreenMap(true)}
+              />
+            </div>
+
             {/* Player Scoring Cards */}
             <div className="px-6">
               <AnimatePresence mode="wait">
@@ -290,6 +316,15 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                 playerPosition={mockPlayerPosition}
                 onPositionSelect={(position) => console.log('Selected position:', position)}
                 onMapClick={() => setShowFullscreenMap(true)}
+                gpsCoordinates={{
+                  teeBox: { lat: 37.4419, lng: -122.1430 }, // Example: Stanford Golf Course
+                  pin: { lat: 37.4425, lng: -122.1435 },
+                  playerLocation: { lat: 37.4422, lng: -122.1432 },
+                  hazards: [
+                    { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
+                    { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
+                  ],
+                }}
               />
 
               {/* Caddie Suggestion */}
@@ -340,6 +375,15 @@ export function ScorecardScreen({ players, scores, onScoreUpdate }: ScorecardScr
                     holeData={mockHoleData}
                     playerPosition={mockPlayerPosition}
                     onPositionSelect={(position) => console.log('Selected position:', position)}
+                    gpsCoordinates={{
+                      teeBox: { lat: 37.4419, lng: -122.1430 },
+                      pin: { lat: 37.4425, lng: -122.1435 },
+                      playerLocation: { lat: 37.4422, lng: -122.1432 },
+                      hazards: [
+                        { lat: 37.4421, lng: -122.1433, type: 'water', name: 'Water Hazard' },
+                        { lat: 37.4424, lng: -122.1434, type: 'bunker', name: 'Sand Trap' },
+                      ],
+                    }}
                   />
                 </div>
                 
