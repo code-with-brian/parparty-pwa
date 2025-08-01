@@ -12,7 +12,7 @@ import { MobileLayout } from '@/components/layout/MobileLayout';
 import { NavigationHeader } from '@/components/layout/NavigationHeader';
 import { BottomTabNavigation } from '@/components/layout/BottomTabNavigation';
 import { ScorecardScreen } from '@/components/screens/ScorecardScreen';
-import { SocialScreen } from '@/components/screens/SocialScreen';
+import SocialFeed from '@/components/SocialFeed';
 import { CameraScreen } from '@/components/screens/CameraScreen';
 import { FoodBeverageScreen } from '@/components/screens/FoodBeverageScreen';
 import { LeaderboardScreen } from '@/components/screens/LeaderboardScreen';
@@ -292,7 +292,12 @@ export default function GameScorecard() {
           onScoreUpdate={handleScoreUpdate}
         />
       ) : activeTab === 'social' ? (
-        <SocialScreen onCameraPress={() => setShowCamera(true)} />
+        <SocialFeed 
+          gameId={gameId as Id<"games">}
+          currentPlayerId={currentPlayerId}
+          className="h-full"
+          onCameraPress={() => setShowCamera(true)}
+        />
       ) : activeTab === 'leaderboard' ? (
         <LeaderboardScreen 
           players={gameState.players}

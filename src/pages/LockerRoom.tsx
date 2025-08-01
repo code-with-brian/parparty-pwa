@@ -619,7 +619,7 @@ export default function LockerRoom() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'summary' && (
+        {activeTab === 'summary' && gameData && (
           <div className="space-y-6">
             <GameSummary
               game={gameData.game}
@@ -632,7 +632,7 @@ export default function LockerRoom() {
             />
             
             {/* Account Creation CTA */}
-            {!showAccountCreation && currentPlayerId && (
+            {!showAccountCreation && currentPlayerId && gameData && (
               <AccountCreationCTA
                 gameData={gameData}
                 currentPlayerId={currentPlayerId}

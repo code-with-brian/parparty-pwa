@@ -1,7 +1,13 @@
-import { Variants } from 'framer-motion';
+// Animation configurations for Framer Motion
+type AnimationVariant = {
+  initial?: any;
+  animate?: any;
+  exit?: any;
+  transition?: any;
+};
 
 // Optimized animation variants for better performance
-export const fadeInUp: Variants = {
+export const fadeInUp: AnimationVariant = {
   initial: {
     opacity: 0,
     y: 20,
@@ -24,7 +30,7 @@ export const fadeInUp: Variants = {
   },
 };
 
-export const fadeIn: Variants = {
+export const fadeIn: AnimationVariant = {
   initial: {
     opacity: 0,
   },
@@ -44,7 +50,7 @@ export const fadeIn: Variants = {
   },
 };
 
-export const slideInFromRight: Variants = {
+export const slideInFromRight: AnimationVariant = {
   initial: {
     x: '100%',
     opacity: 0,
@@ -69,7 +75,7 @@ export const slideInFromRight: Variants = {
   },
 };
 
-export const slideInFromLeft: Variants = {
+export const slideInFromLeft: AnimationVariant = {
   initial: {
     x: '-100%',
     opacity: 0,
@@ -94,7 +100,7 @@ export const slideInFromLeft: Variants = {
   },
 };
 
-export const scaleIn: Variants = {
+export const scaleIn: AnimationVariant = {
   initial: {
     scale: 0.8,
     opacity: 0,
@@ -118,7 +124,7 @@ export const scaleIn: Variants = {
   },
 };
 
-export const staggerContainer: Variants = {
+export const staggerContainer: AnimationVariant = {
   initial: {},
   animate: {
     transition: {
@@ -134,7 +140,7 @@ export const staggerContainer: Variants = {
   },
 };
 
-export const staggerItem: Variants = {
+export const staggerItem: AnimationVariant = {
   initial: {
     opacity: 0,
     y: 20,
@@ -157,7 +163,7 @@ export const staggerItem: Variants = {
 };
 
 // Tab switching animations
-export const tabContent: Variants = {
+export const tabContent: AnimationVariant = {
   initial: {
     opacity: 0,
     x: 20,
@@ -181,7 +187,7 @@ export const tabContent: Variants = {
 };
 
 // Modal animations
-export const modalOverlay: Variants = {
+export const modalOverlay: AnimationVariant = {
   initial: {
     opacity: 0,
   },
@@ -199,7 +205,7 @@ export const modalOverlay: Variants = {
   },
 };
 
-export const modalContent: Variants = {
+export const modalContent: AnimationVariant = {
   initial: {
     opacity: 0,
     scale: 0.95,
@@ -227,7 +233,7 @@ export const modalContent: Variants = {
 };
 
 // Loading animations
-export const pulseAnimation: Variants = {
+export const pulseAnimation: AnimationVariant = {
   initial: {
     scale: 1,
   },
@@ -242,7 +248,7 @@ export const pulseAnimation: Variants = {
 };
 
 // Score update animations
-export const scoreUpdate: Variants = {
+export const scoreUpdate: AnimationVariant = {
   initial: {
     scale: 1,
   },
@@ -256,7 +262,7 @@ export const scoreUpdate: Variants = {
 };
 
 // Achievement celebration animation
-export const celebration: Variants = {
+export const celebration: AnimationVariant = {
   initial: {
     scale: 0,
     rotate: -180,
@@ -272,7 +278,7 @@ export const celebration: Variants = {
 };
 
 // List item animations for social feed
-export const listItem: Variants = {
+export const listItem: AnimationVariant = {
   initial: {
     opacity: 0,
     y: 20,

@@ -52,6 +52,7 @@ describe('Payment Functions', () => {
       const courseId = await t.run(async (ctx) => {
         return await ctx.db.insert('courses', {
           name: 'Test Course',
+          clubName: 'Test Club',
           address: '123 Golf St',
           partnershipLevel: 'basic',
           revenueShare: 0.1,
@@ -190,6 +191,7 @@ describe('Payment Functions', () => {
       const courseId = await t.run(async (ctx) => {
         return await ctx.db.insert('courses', {
           name: 'Test Course',
+          clubName: 'Test Club',
           address: '123 Golf St',
           partnershipLevel: 'basic',
           revenueShare: 0.1,
@@ -252,6 +254,7 @@ describe('Payment Functions', () => {
 
         const courseId = await ctx.db.insert('courses', {
           name: 'Test Course',
+          clubName: 'Test Club',
           address: '123 Golf St',
           partnershipLevel: 'basic',
           revenueShare: 0.1,
@@ -346,6 +349,7 @@ describe('Payment Functions', () => {
 
         const courseId = await ctx.db.insert('courses', {
           name: 'Test Course',
+          clubName: 'Test Club',
           address: '123 Golf St',
           partnershipLevel: 'basic',
           revenueShare: 0.1,
@@ -419,6 +423,7 @@ describe('Payment Functions', () => {
 
         const courseId = await ctx.db.insert('courses', {
           name: 'Test Course',
+          clubName: 'Test Club',
           address: '123 Golf St',
           partnershipLevel: 'basic',
           revenueShare: 0.1,
@@ -549,6 +554,7 @@ describe('Payment Functions', () => {
 
         const courseId = await ctx.db.insert('courses', {
           name: 'Test Course',
+          clubName: 'Test Club',
           address: '123 Golf St',
           partnershipLevel: 'basic',
           revenueShare: 0.1,
@@ -618,6 +624,7 @@ describe('Payment Functions', () => {
 
         const courseId = await ctx.db.insert('courses', {
           name: 'Test Course',
+          clubName: 'Test Club',
           address: '123 Golf St',
           partnershipLevel: 'basic',
           revenueShare: 0.1,

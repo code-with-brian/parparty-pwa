@@ -16,18 +16,21 @@ import {
   ShoppingCart,
   Send,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  UserPlus
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notificationManager } from '@/utils/notificationManager';
 import { OptimizedImage } from '@/components/ui/optimized-image';
 import { fadeInUp, staggerContainer, staggerItem, listItem } from '@/utils/animations';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SocialFeedProps {
   gameId: Id<"games">;
   currentPlayerId?: Id<"players">;
   className?: string;
+  onCameraPress?: () => void;
 }
 
 interface ReactionButtonProps {
@@ -93,13 +96,26 @@ const SocialPost = memo(({ post, currentPlayerId, onReaction, onRemoveReaction, 
     [post.reactions]
   );
 
+  const { isAuthenticated, promptSignUp } = useAuth();
+
   const handleReactionClick = useCallback((type: 'like' | 'love' | 'laugh' | 'wow') => {
+    if (!isAuthenticated) {
+      promptSignUp('reaction', () => {
+        if (userReaction?.type === type) {
+          onRemoveReaction(post._id);
+        } else {
+          onReaction(post._id, type);
+        }
+      });
+      return;
+    }
+
     if (userReaction?.type === type) {
       onRemoveReaction(post._id);
     } else {
       onReaction(post._id, type);
     }
-  }, [userReaction, onRemoveReaction, onReaction, post._id]);
+  }, [userReaction, onRemoveReaction, onReaction, post._id, isAuthenticated, promptSignUp]);
 
   const getPostIcon = useMemo(() => {
     switch (post.type) {
@@ -137,7 +153,7 @@ const SocialPost = memo(({ post, currentPlayerId, onReaction, onRemoveReaction, 
             </div>
             <div>
               <div className="flex items-center gap-2">
-                {getPostIcon()}
+                {getPostIcon}
                 <span className="font-medium">{post.player?.name || 'Unknown Player'}</span>
               </div>
               <div className="text-xs text-gray-500">
@@ -244,11 +260,13 @@ interface CreatePostProps {
   gameId: Id<"games">;
   playerId: Id<"players">;
   onPostCreated: () => void;
+  onCameraPress?: () => void;
 }
 
-const CreatePost = memo(({ gameId, playerId, onPostCreated }: CreatePostProps) => {
+const CreatePost = memo(({ gameId, playerId, onPostCreated, onCameraPress }: CreatePostProps) => {
   const [content, setContent] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const { isAuthenticated, promptSignUp } = useAuth();
 
   const createPost = useMutation(api.socialPosts.createSocialPost);
 
@@ -256,6 +274,17 @@ const CreatePost = memo(({ gameId, playerId, onPostCreated }: CreatePostProps) =
     e.preventDefault();
     if (!content.trim()) return;
 
+    if (!isAuthenticated) {
+      promptSignUp('post', () => {
+        performCreatePost();
+      });
+      return;
+    }
+
+    await performCreatePost();
+  };
+
+  const performCreatePost = async () => {
     try {
       setIsPosting(true);
       await createPost({
@@ -295,9 +324,22 @@ const CreatePost = memo(({ gameId, playerId, onPostCreated }: CreatePostProps) =
             disabled={isPosting}
           />
           <div className="flex justify-between items-center">
-            <span className="text-xs text-gray-500">
-              {content.length}/500
-            </span>
+            <div className="flex items-center gap-2">
+              {onCameraPress && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCameraPress}
+                  className="p-2"
+                >
+                  <Camera className="w-4 h-4" />
+                </Button>
+              )}
+              <span className="text-xs text-gray-500">
+                {content.length}/500
+              </span>
+            </div>
             <Button
               type="submit"
               disabled={!content.trim() || isPosting}
@@ -320,7 +362,9 @@ const CreatePost = memo(({ gameId, playerId, onPostCreated }: CreatePostProps) =
   );
 });
 
-const SocialFeed = memo(({ gameId, currentPlayerId, className = '' }: SocialFeedProps) => {
+const SocialFeed = memo(({ gameId, currentPlayerId, className = '', onCameraPress }: SocialFeedProps) => {
+  const { isAuthenticated, promptSignUp } = useAuth();
+
   // Real-time social feed subscription
   const socialFeed = useQuery(api.socialPosts.getGameSocialFeed, { gameId });
 
@@ -332,16 +376,27 @@ const SocialFeed = memo(({ gameId, currentPlayerId, className = '' }: SocialFeed
   const handleReaction = useCallback(async (postId: Id<"socialPosts">, reactionType: 'like' | 'love' | 'laugh' | 'wow') => {
     if (!currentPlayerId) return;
     
+    if (!isAuthenticated) {
+      promptSignUp('reaction', () => {
+        addReactionToPost(postId, reactionType);
+      });
+      return;
+    }
+
+    await addReactionToPost(postId, reactionType);
+  }, [currentPlayerId, isAuthenticated, promptSignUp]);
+
+  const addReactionToPost = async (postId: Id<"socialPosts">, reactionType: 'like' | 'love' | 'laugh' | 'wow') => {
     try {
       await addReaction({
         postId,
-        playerId: currentPlayerId,
+        playerId: currentPlayerId!,
         reactionType,
       });
     } catch (error) {
       console.error('Error adding reaction:', error);
     }
-  }, [currentPlayerId, addReaction]);
+  };
 
   const handleRemoveReaction = useCallback(async (postId: Id<"socialPosts">) => {
     if (!currentPlayerId) return;
@@ -388,12 +443,13 @@ const SocialFeed = memo(({ gameId, currentPlayerId, className = '' }: SocialFeed
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Create Post */}
+      {/* Create Post - Show for both authenticated and guest users, but trigger conversion for guests */}
       {currentPlayerId && (
         <CreatePost
           gameId={gameId}
           playerId={currentPlayerId}
           onPostCreated={handlePostCreated}
+          onCameraPress={onCameraPress}
         />
       )}
 

@@ -31,6 +31,11 @@ export const createSocialPost = mutation({
         throw new ConvexError("Player not found or not in this game");
       }
 
+      // Require user account for posting
+      if (!player.userId) {
+        throw new ConvexError("User account required to create posts");
+      }
+
       // Validate content
       if (!args.content || args.content.length > 500) {
         throw new ConvexError("Content must be between 1 and 500 characters");
@@ -133,6 +138,11 @@ export const addReaction = mutation({
         throw new ConvexError("Player not found or not in this game");
       }
 
+      // Require user account for reactions
+      if (!player.userId) {
+        throw new ConvexError("User account required to react to posts");
+      }
+
       const reactions = post.reactions || [];
       
       // Check if player already reacted
@@ -184,6 +194,11 @@ export const removeReaction = mutation({
       const player = await ctx.db.get(args.playerId);
       if (!player || player.gameId !== post.gameId) {
         throw new ConvexError("Player not found or not in this game");
+      }
+
+      // Require user account for reactions
+      if (!player.userId) {
+        throw new ConvexError("User account required to react to posts");
       }
 
       const reactions = (post.reactions || []).filter(r => r.playerId !== args.playerId);
@@ -299,6 +314,11 @@ export const createPhotoPost = mutation({
       const player = await ctx.db.get(args.playerId);
       if (!player || player.gameId !== args.gameId) {
         throw new ConvexError("Player not found or not in this game");
+      }
+
+      // Require user account for photo posting
+      if (!player.userId) {
+        throw new ConvexError("User account required to share photos");
       }
 
       const content = args.caption || `${player.name} shared a photo from the round!`;

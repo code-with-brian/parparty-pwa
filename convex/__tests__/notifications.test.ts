@@ -228,6 +228,7 @@ describe("Notifications", () => {
     // Create a course first
     const courseId = await t.mutation(api.courses.createCourse, {
       name: "Test Course",
+      clubName: "Test Club",
       address: "123 Golf St",
       partnershipLevel: "basic",
       revenueShare: 0.1,

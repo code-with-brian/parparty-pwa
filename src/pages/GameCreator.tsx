@@ -5,11 +5,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
-import { QrCode, Copy, Share, Users, ArrowLeft } from 'lucide-react';
+import { QrCode, Copy, Share, Users, ArrowLeft, MapPin, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import QRCodeLib from 'qrcode';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// Temporarily disable Convex dataModel import to fix build issues
+// import type { Id } from '../../convex/_generated/dataModel';
+type Id<T> = string;
 
 // Fun game name generation
 const generateGameName = () => {
@@ -55,6 +60,8 @@ const generateGameName = () => {
 export default function GameCreator() {
   const [gameName, setGameName] = useState('');
   const [userName, setUserName] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState<Id<'courses'> | null>(null);
+  const [step, setStep] = useState<'name' | 'course' | 'created'>('name');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
@@ -65,6 +72,7 @@ export default function GameCreator() {
   const createGame = useMutation(api.games.createGame);
   const createTestUser = useMutation(api.users.createTestUser);
   const addPlayerToGame = useMutation(api.games.addPlayerToGame);
+  const courses = useQuery(api.golfCourses.getAllCourses);
   
   // Get live game state to show players joining
   const gameState = useQuery(
@@ -72,12 +80,21 @@ export default function GameCreator() {
     createdGameId ? { gameId: createdGameId as any } : "skip"
   );
 
-  const handleCreateGame = async () => {
+  const handleNameSubmit = () => {
     if (!userName.trim()) {
       setError('Please enter your name');
       return;
     }
+    setError(null);
+    setStep('course');
+  };
 
+  const handleCourseSelection = () => {
+    // Allow proceeding without course selection
+    handleCreateGame();
+  };
+
+  const handleCreateGame = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -94,7 +111,8 @@ export default function GameCreator() {
       const gameId = await createGame({
         name: generatedGameName,
         createdBy: userId,
-        format: 'stroke'
+        format: 'stroke',
+        courseId: selectedCourse || undefined
       });
 
       // Automatically add the creator as the first player
@@ -105,6 +123,7 @@ export default function GameCreator() {
       });
 
       setCreatedGameId(gameId);
+      setStep('created');
       
       // Generate QR code immediately with auto-join parameter
       const gameUrl = `${window.location.origin}/join/${gameId}?auto=true`;
@@ -186,7 +205,7 @@ export default function GameCreator() {
             </div>
           )}
 
-          {createdGameId ? (
+          {step === 'created' && createdGameId ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -290,6 +309,8 @@ export default function GameCreator() {
                     setCreatedGameId(null);
                     setGameName('');
                     setQrCodeUrl('');
+                    setStep('name');
+                    setSelectedCourse(null);
                   }}
                   variant="ghost"
                   className="w-full text-slate-400 hover:text-white"
@@ -300,36 +321,111 @@ export default function GameCreator() {
             </motion.div>
           ) : (
             <>
-              <div className="text-center mb-6">
-                <h3 className="text-lg font-medium text-white mb-2">
-                  Let's start a new round! 🏌️‍♂️
-                </h3>
-                <p className="text-sm text-slate-300">
-                  Enter your name to create a game
-                </p>
-              </div>
+              {step === 'name' && (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                >
+                  <div className="text-center mb-6">
+                    <h3 className="text-lg font-medium text-white mb-2">
+                      Let's start a new round! 🏌️‍♂️
+                    </h3>
+                    <p className="text-sm text-slate-300">
+                      Enter your name to create a game
+                    </p>
+                  </div>
 
-              <Input
-                placeholder="Your name"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                disabled={loading}
-                className="text-center text-lg"
-                autoFocus
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && userName.trim()) {
-                    handleCreateGame();
-                  }
-                }}
-              />
+                  <Input
+                    placeholder="Your name"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    disabled={loading}
+                    className="text-center text-lg"
+                    autoFocus
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && userName.trim()) {
+                        handleNameSubmit();
+                      }
+                    }}
+                  />
 
-              <Button 
-                onClick={handleCreateGame}
-                disabled={loading || !userName.trim()}
-                className="w-full gradient-party-button text-white hover:scale-105 transition-all duration-300"
-              >
-                {loading ? 'Creating...' : 'Create Game'}
-              </Button>
+                  <Button 
+                    onClick={handleNameSubmit}
+                    disabled={loading || !userName.trim()}
+                    className="w-full gradient-party-button text-white hover:scale-105 transition-all duration-300"
+                  >
+                    Next <ChevronRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </motion.div>
+              )}
+
+              {step === 'course' && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  <div className="text-center mb-6">
+                    <h3 className="text-lg font-medium text-white mb-2">
+                      Select a Golf Course (Optional)
+                    </h3>
+                    <p className="text-sm text-slate-300">
+                      Choose a course or skip to create a casual round
+                    </p>
+                  </div>
+
+                  {courses && courses.length > 0 ? (
+                    <Select
+                      value={selectedCourse || ''}
+                      onValueChange={(value) => setSelectedCourse(value as Id<'courses'>)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a course..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {courses.map((course) => (
+                          <SelectItem key={course._id} value={course._id}>
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4" />
+                              <div>
+                                <div className="font-medium">{course.clubName}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {course.name} • {course.city}, {course.state}
+                                </div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="text-center py-8 text-slate-400">
+                      <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No courses available</p>
+                      <p className="text-xs mt-1">You can still create a casual round</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-3 mt-6">
+                    <Button 
+                      onClick={handleCourseSelection}
+                      disabled={loading}
+                      className="w-full gradient-party-button text-white hover:scale-105 transition-all duration-300"
+                    >
+                      {loading ? 'Creating...' : selectedCourse ? 'Create Game' : 'Skip & Create Game'}
+                    </Button>
+
+                    <Button 
+                      onClick={() => setStep('name')}
+                      variant="ghost"
+                      className="w-full text-slate-400 hover:text-white"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" /> Back
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
             </>
           )}
 

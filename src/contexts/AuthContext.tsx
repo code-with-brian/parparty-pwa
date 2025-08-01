@@ -3,6 +3,7 @@ import { ConvexReactClient } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { notificationManager } from '../utils/notificationManager';
+import { SmartConversionModal } from '../components/SmartConversionModal';
 
 interface User {
   _id: Id<"users">;
@@ -12,6 +13,15 @@ interface User {
   tokenIdentifier: string;
 }
 
+type ConversionTrigger = 'photo_share' | 'achievement' | 'reaction' | 'comment' | 'post';
+
+interface SignUpData {
+  name: string;
+  email?: string;
+  phone?: string;
+  method: 'google' | 'apple' | 'form';
+}
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -19,6 +29,8 @@ interface AuthContextType {
   login: (tokenIdentifier: string, name: string, email?: string, image?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<Pick<User, 'name' | 'email' | 'image'>>) => Promise<void>;
+  promptSignUp: (trigger: ConversionTrigger, callback: () => void) => void;
+  quickSignUp: (data: SignUpData) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +43,10 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [conversionContext, setConversionContext] = useState<{
+    trigger: ConversionTrigger;
+    callback: () => void;
+  } | null>(null);
 
   // Check for existing session on mount
   useEffect(() => {
@@ -127,6 +143,66 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
     }
   };
 
+  const promptSignUp = (trigger: ConversionTrigger, callback: () => void) => {
+    setConversionContext({ trigger, callback });
+  };
+
+  const quickSignUp = async (data: SignUpData) => {
+    try {
+      setIsLoading(true);
+      
+      // Generate unique token identifier
+      const tokenIdentifier = `quick_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+      
+      // Handle guest conversion if we have guest session
+      const guestSession = localStorage.getItem('parparty_guest_session');
+      if (guestSession) {
+        try {
+          const session = JSON.parse(guestSession);
+          const result = await convex.mutation(api.userConversion.convertGuestToUser, {
+            guestId: session.id,
+            name: data.name,
+            email: data.email,
+            tokenIdentifier,
+            image: undefined,
+          });
+
+          if (result.success) {
+            await login(tokenIdentifier, data.name, data.email);
+            
+            // Execute the stored callback
+            if (conversionContext?.callback) {
+              conversionContext.callback();
+            }
+            
+            // Clear conversion context
+            setConversionContext(null);
+            return;
+          }
+        } catch (error) {
+          console.error('Guest conversion failed, creating new user:', error);
+        }
+      }
+
+      // Fallback: create new user
+      await login(tokenIdentifier, data.name, data.email);
+      
+      // Execute the stored callback
+      if (conversionContext?.callback) {
+        conversionContext.callback();
+      }
+      
+      // Clear conversion context
+      setConversionContext(null);
+      
+    } catch (error) {
+      console.error('Error during quick sign up:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -134,11 +210,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
     login,
     logout,
     updateProfile,
+    promptSignUp,
+    quickSignUp,
   };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
+      <SmartConversionModal
+        isOpen={!!conversionContext}
+        onClose={() => setConversionContext(null)}
+        trigger={conversionContext?.trigger || 'post'}
+        onSignUp={quickSignUp}
+        onExecuteAction={() => {
+          if (conversionContext?.callback) {
+            conversionContext.callback();
+          }
+        }}
+      />
     </AuthContext.Provider>
   );
 };

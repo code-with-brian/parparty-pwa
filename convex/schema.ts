@@ -208,64 +208,77 @@ export default defineSchema({
 
   courses: defineTable({
     name: v.string(),
+    clubName: v.string(), // Added for golf club name
     address: v.string(),
     city: v.optional(v.string()),
     state: v.optional(v.string()),
+    country: v.optional(v.string()), // Added for country
     zipCode: v.optional(v.string()),
     phone: v.optional(v.string()),
     website: v.optional(v.string()),
-    partnershipLevel: v.union(v.literal("basic"), v.literal("premium"), v.literal("enterprise")),
-    revenueShare: v.number(),
+    externalId: v.optional(v.string()), // Added for golfapi.io course ID
+    partnershipLevel: v.optional(v.union(v.literal("basic"), v.literal("premium"), v.literal("enterprise"))),
+    revenueShare: v.optional(v.number()),
+    totalHoles: v.optional(v.number()), // Added for number of holes
+    totalPar: v.optional(v.number()), // Added for total par
+    hasGPS: v.optional(v.boolean()), // Added for GPS availability
     // Enhanced golf course data
-    location: v.object({
+    location: v.optional(v.object({
       lat: v.number(),
       lng: v.number(),
-    }),
-    holes: v.array(v.object({
-      number: v.number(),
+    })),
+    holes: v.optional(v.array(v.object({
+      holeNumber: v.number(), // Changed from 'number' to 'holeNumber' for clarity
       par: v.number(),
-      yardage: v.object({
-        championship: v.number(),
-        mens: v.number(),
-        womens: v.number(),
-        junior: v.number(),
-      }),
-      layout: v.object({
-        teeBoxes: v.array(v.object({
+      coordinates: v.optional(v.array(v.object({ // Added coordinates array from golfapi.io
+        type: v.string(), // tee, green_front, green_center, hazard_start, etc.
+        location: v.number(), // 1, 2, 3 for tee positions
+        latitude: v.number(),
+        longitude: v.number(),
+        poi: v.number(), // Point of Interest type from API
+      }))),
+      yardage: v.optional(v.object({
+        championship: v.optional(v.number()),
+        mens: v.optional(v.number()),
+        womens: v.optional(v.number()),
+        junior: v.optional(v.number()),
+      })),
+      layout: v.optional(v.object({
+        teeBoxes: v.optional(v.array(v.object({
           name: v.string(), // "Championship", "Mens", "Womens", "Junior"
           coordinates: v.object({ lat: v.number(), lng: v.number() }),
           yardage: v.number(),
+        }))),
+        fairwayPath: v.optional(v.array(v.object({ lat: v.number(), lng: v.number() }))),
+        green: v.optional(v.object({
+          center: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+          front: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+          middle: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+          back: v.optional(v.object({ lat: v.number(), lng: v.number() })),
+          contour: v.optional(v.array(v.object({ lat: v.number(), lng: v.number() }))),
         })),
-        fairwayPath: v.array(v.object({ lat: v.number(), lng: v.number() })),
-        green: v.object({
-          center: v.object({ lat: v.number(), lng: v.number() }),
-          front: v.object({ lat: v.number(), lng: v.number() }),
-          middle: v.object({ lat: v.number(), lng: v.number() }),
-          back: v.object({ lat: v.number(), lng: v.number() }),
-          contour: v.array(v.object({ lat: v.number(), lng: v.number() })),
-        }),
-        hazards: v.array(v.object({
+        hazards: v.optional(v.array(v.object({
           type: v.union(v.literal("water"), v.literal("bunker"), v.literal("trees"), v.literal("rough"), v.literal("out_of_bounds")),
           name: v.optional(v.string()),
           coordinates: v.array(v.object({ lat: v.number(), lng: v.number() })),
           carryDistance: v.optional(v.number()),
           penalty: v.optional(v.string()),
-        })),
+        }))),
         layupTargets: v.optional(v.array(v.object({
           name: v.string(),
           coordinates: v.object({ lat: v.number(), lng: v.number() }),
           optimalDistance: v.number(),
           description: v.string(),
         }))),
-      }),
-      difficulty: v.union(v.literal("easy"), v.literal("medium"), v.literal("hard")),
-      strokeIndex: v.number(),
+      })),
+      difficulty: v.optional(v.union(v.literal("easy"), v.literal("medium"), v.literal("hard"))),
+      strokeIndex: v.optional(v.number()),
       description: v.optional(v.string()),
       elevation: v.optional(v.object({
         teeToGreen: v.number(), // feet difference
         maxElevationChange: v.number(),
       })),
-    })),
+    }))),
     courseConditions: v.optional(v.object({
       greenSpeed: v.union(v.literal("slow"), v.literal("medium"), v.literal("fast")),
       firmness: v.union(v.literal("soft"), v.literal("medium"), v.literal("firm")),
@@ -294,12 +307,12 @@ export default defineSchema({
       averageOrderValue: v.number(),
       lastUpdated: v.number(),
     })),
-    isActive: v.boolean(),
-    createdAt: v.number(),
-  }).index("by_partnership", ["partnershipLevel"])
-    .index("by_active", ["isActive"])
+    isActive: v.optional(v.boolean()),
+    createdAt: v.optional(v.number()),
+  }).index("by_active", ["isActive"])
     .index("by_city", ["city"])
-    .index("by_state", ["state"]),
+    .index("by_state", ["state"])
+    .index("by_external_id", ["externalId"]),
 
   // Golf Intelligence Tables
   gameIntelligence: defineTable({

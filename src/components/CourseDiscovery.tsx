@@ -5,7 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
-import { MapPin, Phone, Globe, Users, TrendingUp } from 'lucide-react';
+import { MapPin, Phone, Globe, Users, TrendingUp, Navigation } from 'lucide-react';
+
+// Temporarily disable Convex dataModel import to fix build issues
+// import type { Id } from '../../convex/_generated/dataModel';
+type Id<T> = string;
 
 interface CourseDiscoveryProps {
   onCourseSelect?: (courseId: string) => void;
@@ -15,7 +19,7 @@ export const CourseDiscovery: React.FC<CourseDiscoveryProps> = ({ onCourseSelect
   const [searchCity, setSearchCity] = useState('');
   const [searchState, setSearchState] = useState('');
 
-  const courses = useQuery(api.courses.getCoursesByLocation, {
+  const courses = useQuery(api.golfCourses.getCoursesByLocation, {
     city: searchCity || undefined,
     state: searchState || undefined,
   });
@@ -68,10 +72,16 @@ export const CourseDiscovery: React.FC<CourseDiscoveryProps> = ({ onCourseSelect
           <Card key={course._id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{course.name}</CardTitle>
-                <Badge className={getPartnershipBadgeColor(course.partnershipLevel)}>
-                  {course.partnershipLevel}
-                </Badge>
+                <div>
+                  <CardTitle className="text-lg">{course.clubName}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">{course.name}</p>
+                </div>
+                {course.hasGPS && (
+                  <Badge className="bg-green-100 text-green-800">
+                    <Navigation className="h-3 w-3 mr-1" />
+                    GPS
+                  </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -82,7 +92,14 @@ export const CourseDiscovery: React.FC<CourseDiscoveryProps> = ({ onCourseSelect
               
               {course.city && course.state && (
                 <div className="text-sm text-gray-600">
-                  {course.city}, {course.state} {course.zipCode}
+                  {course.city}, {course.state} {course.country && `, ${course.country}`}
+                </div>
+              )}
+
+              {course.totalHoles && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <Users className="h-4 w-4 mr-2" />
+                  <span>{course.totalHoles} holes • Par {course.totalPar || 'N/A'}</span>
                 </div>
               )}
 

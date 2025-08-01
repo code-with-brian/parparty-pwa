@@ -6,6 +6,7 @@ import { Id } from "./_generated/dataModel";
 export const createCourse = mutation({
   args: {
     name: v.string(),
+    clubName: v.string(),
     address: v.string(),
     city: v.optional(v.string()),
     state: v.optional(v.string()),

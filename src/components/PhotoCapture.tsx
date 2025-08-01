@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';  
-
+import { useAuth } from '@/contexts/AuthContext';
 
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { isPlatform } from '@ionic/react';
@@ -100,9 +100,22 @@ export default function PhotoCapture({
     }
   };
 
+  const { isAuthenticated, promptSignUp } = useAuth();
+
   const handleSharePhoto = async () => {
     if (!capturedImage) return;
 
+    if (!isAuthenticated) {
+      promptSignUp('photo_share', () => {
+        performPhotoShare();
+      });
+      return;
+    }
+
+    await performPhotoShare();
+  };
+
+  const performPhotoShare = async () => {
     try {
       setIsUploading(true);
 
