@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { MapPin, Target, Navigation, Zap, Droplets, Satellite, Map } from 'lucide-react';
 import { GoogleMap } from '../GoogleMap';
 import { logger } from '@/utils/logger';
+import { POI_TYPES } from '@/utils/golfApiClient';
 
 interface HazardData {
   type: 'water' | 'bunker' | 'trees' | 'rough';
@@ -40,12 +41,18 @@ interface HoleMapViewProps {
   playerPosition: PlayerPosition;
   onPositionSelect?: (position: { x: number; y: number }) => void;
   onMapClick?: () => void;
-  // Optional GPS coordinates for real Google Maps integration
+  // GPS coordinates with enhanced POI data
   gpsCoordinates?: {
     teeBox: { lat: number; lng: number };
     pin: { lat: number; lng: number };
     playerLocation?: { lat: number; lng: number };
-    hazards?: Array<{ lat: number; lng: number; type: HazardData['type']; name: string }>;
+    pois?: Array<{ 
+      lat: number; 
+      lng: number; 
+      poi: number; // POI type (1-12)
+      location: number; // Position (1-3)
+      sideFW: number; // Fairway side (1-3)
+    }>;
   };
 }
 
@@ -78,38 +85,235 @@ export function HoleMapView({ holeData, playerPosition, onPositionSelect, onMapC
     return Math.sqrt(dx * dx + dy * dy) * 2; // Scale factor for yards
   };
 
-  // Generate Google Maps markers if GPS coordinates are available
+  // Enhanced POI icon generator with meaningful graphics
+  const createPOIIcon = (poiType: string, size: number = 28): any => {
+    const baseProps = {
+      scaledSize: { width: size, height: size },
+    };
+
+    switch (poiType) {
+      case 'green':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#22C55E" stroke="white" stroke-width="2"/>
+              <circle cx="${size/2}" cy="${size/2}" r="${size/4}" fill="#16A34A" stroke="white" stroke-width="1"/>
+              <path d="M${size/2} ${size/4}L${size/2} ${3*size/4}" stroke="white" stroke-width="2"/>
+            </svg>
+          `),
+        };
+
+      case 'green_bunker':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#FBBF24" stroke="white" stroke-width="2"/>
+              <path d="M${size/4} ${size/2} Q${size/2} ${size/4} ${3*size/4} ${size/2} Q${size/2} ${3*size/4} ${size/4} ${size/2}" fill="#F59E0B"/>
+              <text x="${size/2}" y="${size/2 + 4}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/4}" font-weight="bold">B</text>
+            </svg>
+          `),
+        };
+
+      case 'fairway_bunker':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#F59E0B" stroke="white" stroke-width="2"/>
+              <path d="M${size/4} ${size/2} Q${size/2} ${size/4} ${3*size/4} ${size/2} Q${size/2} ${3*size/4} ${size/4} ${size/2}" fill="#D97706"/>
+              <text x="${size/2}" y="${size/2 + 4}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/4}" font-weight="bold">B</text>
+            </svg>
+          `),
+        };
+
+      case 'water':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#3B82F6" stroke="white" stroke-width="2"/>
+              <path d="M${size/4} ${size/2} Q${size/3} ${size/3} ${size/2} ${size/2} Q${2*size/3} ${size/3} ${3*size/4} ${size/2} Q${2*size/3} ${2*size/3} ${size/2} ${size/2} Q${size/3} ${2*size/3} ${size/4} ${size/2}" fill="#1D4ED8"/>
+              <text x="${size/2}" y="${size/2 + 4}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/4}" font-weight="bold">~</text>
+            </svg>
+          `),
+        };
+
+      case 'trees':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#16A34A" stroke="white" stroke-width="2"/>
+              <path d="M${size/2} ${size/4}L${size/4} ${3*size/4}L${3*size/4} ${3*size/4}Z" fill="#15803D"/>
+              <rect x="${size/2 - 2}" y="${2*size/3}" width="4" height="${size/6}" fill="#92400E"/>
+            </svg>
+          `),
+        };
+
+      case 'marker_100':
+      case 'marker_150':
+      case 'marker_200':
+        const yardage = poiType.split('_')[1];
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#8B5CF6" stroke="white" stroke-width="2"/>
+              <text x="${size/2}" y="${size/2 + 3}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/5}" font-weight="bold">${yardage}</text>
+            </svg>
+          `),
+        };
+
+      case 'front_tee':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#10B981" stroke="white" stroke-width="2"/>
+              <rect x="${size/2 - 1}" y="${size/4}" width="2" height="${size/2}" fill="white"/>
+              <circle cx="${size/2}" cy="${size/4 + 2}" r="3" fill="white"/>
+              <text x="${size/2}" y="${3*size/4 + 2}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/6}" font-weight="bold">F</text>
+            </svg>
+          `),
+        };
+
+      case 'back_tee':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#DC2626" stroke="white" stroke-width="2"/>
+              <rect x="${size/2 - 1}" y="${size/4}" width="2" height="${size/2}" fill="white"/>
+              <circle cx="${size/2}" cy="${size/4 + 2}" r="3" fill="white"/>
+              <text x="${size/2}" y="${3*size/4 + 2}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/6}" font-weight="bold">B</text>
+            </svg>
+          `),
+        };
+
+      default:
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 2}" fill="#6B7280" stroke="white" stroke-width="2"/>
+              <text x="${size/2}" y="${size/2 + 4}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/4}" font-weight="bold">?</text>
+            </svg>
+          `),
+        };
+    }
+  };
+
+  // Get meaningful POI info with proper styling
+  const getPOIInfo = (poi: any): string => {
+    const poiType = POI_TYPES[poi.poi as keyof typeof POI_TYPES] || 'unknown';
+    const location = poi.location === 1 ? 'Front' : poi.location === 2 ? 'Middle' : 'Back';
+    const side = poi.sideFW === 1 ? 'Left' : poi.sideFW === 2 ? 'Center' : 'Right';
+    
+    const getPOIDisplayName = (type: string): string => {
+      const names: Record<string, string> = {
+        green: 'Green',
+        green_bunker: 'Greenside Bunker',
+        fairway_bunker: 'Fairway Bunker',
+        water: 'Water Hazard',
+        trees: 'Trees',
+        marker_100: '100 Yard Marker',
+        marker_150: '150 Yard Marker',
+        marker_200: '200 Yard Marker',
+        dogleg: 'Dogleg',
+        road: 'Cart Path/Road',
+        front_tee: 'Forward Tee',
+        back_tee: 'Championship Tee',
+      };
+      return names[type] || type;
+    };
+
+    return `
+      <div style="padding: 12px; min-width: 180px; background: #1f2937; color: #f9fafb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px; color: #f9fafb;">${getPOIDisplayName(poiType)}</h3>
+        <div style="font-size: 14px; line-height: 1.4;">
+          <div style="margin-bottom: 4px; color: #d1d5db;"><strong style="color: #f9fafb;">Position:</strong> ${location} ${side !== 'Center' ? `(${side} side)` : ''}</div>
+          ${poiType.includes('marker_') ? `<div style="color: #a855f7; font-weight: 500; margin-top: 6px;">📏 Distance marker</div>` : ''}
+          ${poiType.includes('bunker') ? `<div style="color: #f59e0b; font-weight: 500; margin-top: 6px;">⚠️ Sand hazard</div>` : ''}
+          ${poiType === 'water' ? `<div style="color: #3b82f6; font-weight: 500; margin-top: 6px;">💧 Water hazard</div>` : ''}
+          ${poiType === 'trees' ? `<div style="color: #10b981; font-weight: 500; margin-top: 6px;">🌲 Tree line</div>` : ''}
+          ${poiType === 'green' ? `<div style="color: #10b981; font-weight: 500; margin-top: 6px;">🎯 Target area</div>` : ''}
+        </div>
+      </div>
+    `;
+  };
+
+  // Generate enhanced Google Maps markers with meaningful POI graphics
   const googleMapMarkers = gpsCoordinates ? [
-    // Tee box marker
-    {
-      position: gpsCoordinates.teeBox,
-      title: `Hole ${holeData.number} Tee`,
-      info: `<div class="p-2"><strong>Hole ${holeData.number} Tee</strong><br/>Par ${holeData.par} • ${holeData.yardage} yards</div>`,
-      icon: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png',
-    },
-    // Pin marker
-    {
-      position: gpsCoordinates.pin,
-      title: `Hole ${holeData.number} Pin`,
-      info: `<div class="p-2"><strong>Hole ${holeData.number} Pin</strong><br/>${holeData.pinPosition.description}</div>`,
-      icon: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-    },
-    // Player location marker
+    // Player location marker (highest priority)
     ...(gpsCoordinates.playerLocation ? [{
       position: gpsCoordinates.playerLocation,
       title: 'Your Position',
-      info: '<div class="p-2"><strong>Your Current Position</strong></div>',
-      icon: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+      info: '<div style="padding: 12px; background: #1f2937; color: #f9fafb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;"><strong style="color: #f9fafb;">Your Current Position</strong><br/>📍 You are here</div>',
+      icon: {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+          <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" fill="#3B82F6" stroke="white" stroke-width="2"/>
+            <circle cx="12" cy="12" r="4" fill="white"/>
+            <circle cx="12" cy="12" r="2" fill="#3B82F6"/>
+          </svg>
+        `),
+        scaledSize: { width: 24, height: 24 },
+      },
+      zIndex: 2000,
     }] : []),
-    // Hazard markers
-    ...(gpsCoordinates.hazards?.map(hazard => ({
-      position: { lat: hazard.lat, lng: hazard.lng },
-      title: hazard.name,
-      info: `<div class="p-2"><strong>${hazard.name}</strong><br/>Type: ${hazard.type}</div>`,
-      icon: hazard.type === 'water' ? 'https://maps.google.com/mapfiles/ms/icons/blue.png' : 
-            hazard.type === 'bunker' ? 'https://maps.google.com/mapfiles/ms/icons/yellow.png' :
-            'https://maps.google.com/mapfiles/ms/icons/tree.png',
-    })) || []),
+
+    // Enhanced POI markers with meaningful graphics
+    ...(gpsCoordinates.pois?.map(poi => {
+      const poiType = POI_TYPES[poi.poi as keyof typeof POI_TYPES] || 'unknown';
+      const location = poi.location === 1 ? 'Front' : poi.location === 2 ? 'Middle' : 'Back';
+      const side = poi.sideFW === 1 ? 'Left' : poi.sideFW === 2 ? 'Center' : 'Right';
+      
+      const getPOIDisplayName = (type: string): string => {
+        const names: Record<string, string> = {
+          green: 'Green',
+          green_bunker: 'Greenside Bunker',
+          fairway_bunker: 'Fairway Bunker',
+          water: 'Water Hazard',
+          trees: 'Trees',
+          marker_100: '100 Yard Marker',
+          marker_150: '150 Yard Marker',
+          marker_200: '200 Yard Marker',
+          dogleg: 'Dogleg',
+          road: 'Cart Path/Road',
+          front_tee: 'Forward Tee',
+          back_tee: 'Championship Tee',
+        };
+        return names[type] || type;
+      };
+
+      return {
+        position: { lat: poi.lat, lng: poi.lng },
+        title: `${getPOIDisplayName(poiType)} - Hole ${holeData.number}`,
+        info: getPOIInfo(poi),
+        icon: createPOIIcon(poiType, 32),
+        zIndex: poiType === 'green' ? 1500 : 1000,
+      };
+    }) || []),
+
+    // Fallback tee and pin markers if no POI data
+    ...(!gpsCoordinates.pois ? [
+      {
+        position: gpsCoordinates.teeBox,
+        title: `Hole ${holeData.number} Tee`,
+        info: `<div style="padding: 12px; background: #1f2937; color: #f9fafb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><strong style="color: #f9fafb;">Hole ${holeData.number} Tee</strong><br/>Par ${holeData.par} • ${holeData.yardage} yards</div>`,
+        icon: createPOIIcon('front_tee', 32),
+        zIndex: 1000,
+      },
+      {
+        position: gpsCoordinates.pin,
+        title: `Hole ${holeData.number} Pin`,
+        info: `<div style="padding: 12px; background: #1f2937; color: #f9fafb; border-radius: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><strong style="color: #f9fafb;">Hole ${holeData.number} Pin</strong><br/>${holeData.pinPosition.description}</div>`,
+        icon: createPOIIcon('green', 32),
+        zIndex: 1500,
+      },
+    ] : []),
   ] : [];
 
   // Determine map center for Google Maps

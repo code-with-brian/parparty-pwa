@@ -46,13 +46,18 @@ export interface GolfApiCoordinatesResponse {
 
 // POI (Point of Interest) types
 export const POI_TYPES = {
-  1: 'tee',
-  3: 'fairway_marker',
-  6: 'hazard_start',
-  7: 'hazard_middle',
-  8: 'hazard_end',
-  11: 'green_front',
-  12: 'green_center',
+  1: 'green',
+  2: 'green_bunker',
+  3: 'fairway_bunker',
+  4: 'water',
+  5: 'trees',
+  6: 'marker_100',
+  7: 'marker_150',
+  8: 'marker_200',
+  9: 'dogleg',
+  10: 'road',
+  11: 'front_tee',
+  12: 'back_tee',
 } as const;
 
 // Location types for tee boxes

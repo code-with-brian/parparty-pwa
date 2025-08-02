@@ -2,6 +2,7 @@ import React from 'react';
 import { GoogleMap } from '../GoogleMap';
 import { MapPin, Target, Zap } from 'lucide-react';
 import { logger } from '@/utils/logger';
+import { POI_TYPES } from '@/utils/golfApiClient';
 
 interface HazardData {
   type: 'water' | 'bunker' | 'trees' | 'rough';
@@ -20,7 +21,13 @@ interface GPSCoordinates {
   teeBox: { lat: number; lng: number };
   pin: { lat: number; lng: number };
   playerLocation?: { lat: number; lng: number };
-  hazards?: Array<{ lat: number; lng: number; type: string; name: string }>;
+  pois?: Array<{ 
+    lat: number; 
+    lng: number; 
+    poi: number; // POI type (1-12)
+    location: number; // Position (1-3)
+    sideFW: number; // Fairway side (1-3)
+  }>;
 }
 
 interface CompactHoleMapProps {
@@ -42,44 +49,95 @@ export const CompactHoleMap: React.FC<CompactHoleMapProps> = ({
     return null; // Don't show anything if no GPS data
   }
 
-  // Generate Google Maps markers for the compact view
+  // Enhanced POI icon creation for compact view
+  const createCompactPOIIcon = (poiType: string, size: number = 20): any => {
+    const baseProps = {
+      scaledSize: { width: size, height: size },
+    };
+
+    switch (poiType) {
+      case 'green':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 1}" fill="#22C55E" stroke="white" stroke-width="1"/>
+              <path d="M${size/2} ${size/3}L${size/2} ${2*size/3}" stroke="white" stroke-width="1"/>
+            </svg>
+          `),
+        };
+      case 'water':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 1}" fill="#3B82F6" stroke="white" stroke-width="1"/>
+              <text x="${size/2}" y="${size/2 + 2}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/3}" font-weight="bold">~</text>
+            </svg>
+          `),
+        };
+      case 'fairway_bunker':
+      case 'green_bunker':
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 1}" fill="#F59E0B" stroke="white" stroke-width="1"/>
+              <text x="${size/2}" y="${size/2 + 2}" text-anchor="middle" fill="white" font-family="Arial" font-size="${size/3}" font-weight="bold">B</text>
+            </svg>
+          `),
+        };
+      default:
+        return {
+          ...baseProps,
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="${size/2}" cy="${size/2}" r="${size/2 - 1}" fill="#6B7280" stroke="white" stroke-width="1"/>
+            </svg>
+          `),
+        };
+    }
+  };
+
+  // Generate enhanced Google Maps markers for the compact view
   const getMapMarkers = () => {
-    return [
-      // Tee box marker
-      {
-        position: gpsCoordinates.teeBox,
-        title: `Hole ${holeData.number} Tee`,
-        info: `<div class="p-2"><strong>Hole ${holeData.number} Tee</strong><br/>Par ${holeData.par} • ${holeData.yardage} yards</div>`,
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="10" fill="#10B981" stroke="white" stroke-width="2"/>
-              <text x="12" y="16" text-anchor="middle" fill="white" font-family="Arial" font-size="8" font-weight="bold">T</text>
-            </svg>
-          `),
-          scaledSize: { width: 24, height: 24 },
+    const markers = [];
+
+    // Add enhanced POI markers if available
+    if (gpsCoordinates.pois) {
+      gpsCoordinates.pois.forEach(poi => {
+        const poiType = POI_TYPES[poi.poi as keyof typeof POI_TYPES] || 'unknown';
+        markers.push({
+          position: { lat: poi.lat, lng: poi.lng },
+          title: `${poiType} - Hole ${holeData.number}`,
+          info: `<div style="padding: 8px; background: #1f2937; color: #f9fafb; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><strong style="color: #f9fafb;">${poiType}</strong><br/>Hole ${holeData.number}</div>`,
+          icon: createCompactPOIIcon(poiType, 20),
+        });
+      });
+    } else {
+      // Fallback to basic tee and pin markers
+      markers.push(
+        {
+          position: gpsCoordinates.teeBox,
+          title: `Hole ${holeData.number} Tee`,
+          info: `<div style="padding: 8px; background: #1f2937; color: #f9fafb; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><strong style="color: #f9fafb;">Hole ${holeData.number} Tee</strong><br/>Par ${holeData.par} • ${holeData.yardage} yards</div>`,
+          icon: createCompactPOIIcon('front_tee', 20),
         },
-      },
-      // Pin marker
-      {
-        position: gpsCoordinates.pin,
-        title: `Hole ${holeData.number} Pin`,
-        info: `<div class="p-2"><strong>Hole ${holeData.number} Pin</strong><br/>Target location</div>`,
-        icon: {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-            <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 2L10 18M6 6L14 6" stroke="#DC2626" stroke-width="2" fill="none"/>
-              <circle cx="10" cy="6" r="2" fill="#DC2626"/>
-            </svg>
-          `),
-          scaledSize: { width: 20, height: 20 },
-        },
-      },
-      // Player location marker
-      ...(gpsCoordinates.playerLocation ? [{
+        {
+          position: gpsCoordinates.pin,
+          title: `Hole ${holeData.number} Pin`,
+          info: `<div style="padding: 8px; background: #1f2937; color: #f9fafb; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"><strong style="color: #f9fafb;">Hole ${holeData.number} Pin</strong><br/>Target location</div>`,
+          icon: createCompactPOIIcon('green', 20),
+        }
+      );
+    }
+
+    // Player location marker
+    if (gpsCoordinates.playerLocation) {
+      markers.push({
         position: gpsCoordinates.playerLocation,
         title: 'Your Position',
-        info: '<div class="p-2"><strong>Your Current Position</strong></div>',
+        info: '<div style="padding: 8px; background: #1f2937; color: #f9fafb; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif;"><strong style="color: #f9fafb;">Your Current Position</strong></div>',
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
             <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
@@ -89,8 +147,10 @@ export const CompactHoleMap: React.FC<CompactHoleMapProps> = ({
           `),
           scaledSize: { width: 16, height: 16 },
         },
-      }] : []),
-    ];
+      });
+    }
+
+    return markers;
   };
 
   const mapCenter = gpsCoordinates.teeBox;

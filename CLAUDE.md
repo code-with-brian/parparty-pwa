@@ -182,6 +182,40 @@ STRIPE_SECRET_KEY=sk_test_...
    - Tailwind classes use these variables
    - No theme switching - always dark
 
+### Golf Course POI System
+
+The course mapping system uses a specific POI (Point of Interest) schema:
+
+**POI Types**:
+- 1 = Green
+- 2 = Green Bunker
+- 3 = Fairway Bunker
+- 4 = Water
+- 5 = Trees
+- 6 = 100 Yard Marker
+- 7 = 150 Yard Marker
+- 8 = 200 Yard Marker
+- 9 = Dogleg
+- 10 = Road
+- 11 = Front Tee
+- 12 = Back Tee
+
+**Location Positioning**:
+- location: 1 (front), 2 (middle), 3 (back)
+- sideFW: 1 (left), 2 (center), 3 (right of fairway)
+
+**Coordinate Structure**:
+```typescript
+{
+  poi: number,        // POI type (1-12)
+  location: number,   // Position (1-3)
+  sideFW: number,     // Fairway side (1-3)
+  hole: number,       // Hole number
+  latitude: number,   // GPS latitude
+  longitude: number   // GPS longitude
+}
+```
+
 ### Current State & Notes
 
 - **Working Features**: Game creation, QR join, real-time scoring, social feed
