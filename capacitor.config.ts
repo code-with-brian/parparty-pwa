@@ -10,8 +10,8 @@ const config: CapacitorConfig = {
     },
     SocialLogin: {
       google: {
-        iOSClientId: '1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
-        webClientId: '1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
+        iOSClientId: '860809923710-phr8hs4el9t9nmevhjk8oqjad5rd3dv3.apps.googleusercontent.com',
+        webClientId: '860809923710-040a8v1e6jj8jvcaa8qicdaebbc362p9.apps.googleusercontent.com',
       },
       apple: {
         clientId: 'com.parparty.pwa',

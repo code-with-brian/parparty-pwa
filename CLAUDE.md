@@ -230,7 +230,9 @@ The course mapping system uses a specific POI (Point of Interest) schema:
 - Utility: `src/utils/googleAuth.ts`
 - Platform: iOS, Android, Web (cross-platform)
 - Configuration: Platform-specific OAuth client IDs required
-- Status: ✅ Fully implemented, needs production setup
+- Setup Guide: `GOOGLE_OAUTH_SETUP.md`
+- Status: ✅ Fully implemented, using placeholder credentials
+- Known Issue: "Error 401: invalid_client" with placeholder IDs (expected)
 
 **Guest Conversion Flow**:
 - SmartConversionModal supports both Apple and Google authentication

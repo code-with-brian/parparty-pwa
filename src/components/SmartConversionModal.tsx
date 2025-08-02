@@ -180,12 +180,24 @@ export function SmartConversionModal({
     } catch (error: any) {
       console.error('Social sign up failed:', error);
       
-      // Don't show error for user cancellation
-      if (error.message?.includes('cancelled') || error.message?.includes('USER_CANCELLED')) {
+      // Don't show error for user cancellation or expected popup issues
+      if (error.message?.includes('cancelled') || 
+          error.message?.includes('USER_CANCELLED') ||
+          error.message?.includes('Popup closed') ||
+          error.message?.includes('Authentication timeout')) {
+        // Just return to the main screen without showing an error
         setStep('motivation');
       } else {
-        // Show error and return to signup
-        alert(`Sign-in failed: ${error.message || 'Unknown error'}`);
+        // Show helpful error messages
+        let errorMessage = error.message || 'Unknown error';
+        
+        if (errorMessage.includes('invalid_client')) {
+          errorMessage = 'Google Sign-In configuration issue. Using development setup - this is expected in development mode.';
+        } else if (errorMessage.includes('popup')) {
+          errorMessage = 'Sign-in popup was closed. Please try again and complete the process in the popup window.';
+        }
+        
+        alert(`Sign-in failed: ${errorMessage}`);
         setStep('motivation');
       }
     } finally {
