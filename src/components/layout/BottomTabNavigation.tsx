@@ -98,7 +98,7 @@ export function BottomTabNavigation({
           
           {/* User Avatar */}
           <div className="ml-3 border-l border-white/10 pl-3">
-            <UserMenu className="scale-90" />
+            <UserMenu className="scale-90" position="top" />
           </div>
         </div>
       </div>

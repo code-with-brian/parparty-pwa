@@ -15,13 +15,30 @@ import { useAuth } from '@/contexts/AuthContext';
 
 interface UserMenuProps {
   className?: string;
+  position?: 'auto' | 'top' | 'bottom';
 }
 
-export function UserMenu({ className = '' }: UserMenuProps) {
+export function UserMenu({ className = '', position = 'auto' }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<'top' | 'bottom'>('bottom');
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
+
+  // Auto-detect dropdown position based on available space
+  useEffect(() => {
+    if (position === 'auto' && menuRef.current && isOpen) {
+      const rect = menuRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // If there's more space above and not enough below, position on top
+      setDropdownPosition(spaceAbove > spaceBelow && spaceBelow < 300 ? 'top' : 'bottom');
+    } else if (position !== 'auto') {
+      setDropdownPosition(position);
+    }
+  }, [isOpen, position]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -119,11 +136,27 @@ export function UserMenu({ className = '' }: UserMenuProps) {
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            initial={{ 
+              opacity: 0, 
+              scale: 0.95, 
+              y: dropdownPosition === 'top' ? 10 : -10 
+            }}
+            animate={{ 
+              opacity: 1, 
+              scale: 1, 
+              y: 0 
+            }}
+            exit={{ 
+              opacity: 0, 
+              scale: 0.95, 
+              y: dropdownPosition === 'top' ? 10 : -10 
+            }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-64 origin-top-right"
+            className={`absolute right-0 w-64 z-50 ${
+              dropdownPosition === 'top' 
+                ? 'bottom-full mb-2 origin-bottom-right' 
+                : 'top-full mt-2 origin-top-right'
+            }`}
           >
             <div className="rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden">
               {/* User info header */}
