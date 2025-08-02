@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
+import { HelpModal } from '@/components/HelpModal';
 
 interface UserMenuProps {
   className?: string;
@@ -21,6 +22,7 @@ interface UserMenuProps {
 export function UserMenu({ className = '', position = 'auto' }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<'top' | 'bottom'>('bottom');
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user, logout, isAuthenticated, signInWithGoogle, signInWithApple } = useAuth();
@@ -97,7 +99,7 @@ export function UserMenu({ className = '', position = 'auto' }: UserMenuProps) {
       icon: HelpCircle,
       label: 'Help & Support',
       onClick: () => {
-        // Could open help modal or navigate to help page
+        setShowHelpModal(true);
         setIsOpen(false);
       }
     },
@@ -314,6 +316,12 @@ export function UserMenu({ className = '', position = 'auto' }: UserMenuProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Help Modal */}
+      <HelpModal 
+        isOpen={showHelpModal} 
+        onClose={() => setShowHelpModal(false)} 
+      />
     </div>
   );
 }

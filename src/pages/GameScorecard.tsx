@@ -284,6 +284,7 @@ export default function GameScorecard() {
               });
             }
           }}
+          showUserMenu={false}
           rightAction={
             <button
               onClick={handleFinishGame}

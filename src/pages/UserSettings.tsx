@@ -52,9 +52,12 @@ export default function UserSettings() {
 
   React.useEffect(() => {
     // Check push notification permission status
-    notificationManager.checkPermission().then(enabled => {
-      setNotifications(prev => ({ ...prev, pushEnabled: enabled }));
-    });
+    const isEnabled = notificationManager.isEnabled();
+    const permissionStatus = notificationManager.getPermissionStatus();
+    setNotifications(prev => ({ 
+      ...prev, 
+      pushEnabled: isEnabled && permissionStatus === 'granted' 
+    }));
   }, []);
 
   if (!isAuthenticated || !user) {
