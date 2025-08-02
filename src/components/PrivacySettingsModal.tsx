@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PrivacySettingsModalProps {
   isOpen: boolean;
@@ -34,29 +35,41 @@ interface PrivacySettings {
 
 export function PrivacySettingsModal({ isOpen, onClose }: PrivacySettingsModalProps) {
   const { success, error } = useToast();
+  const { userSettings, updatePrivacySettings } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   
   const [settings, setSettings] = useState<PrivacySettings>({
-    profileVisibility: 'public',
-    gameActivity: 'friends',
-    statsVisible: true,
-    achievementsVisible: true,
-    allowFriendRequests: true,
-    allowGameInvites: true,
-    showOnlineStatus: true,
-    dataSharing: false,
+    profileVisibility: userSettings?.profileVisibility || 'public',
+    gameActivity: userSettings?.gameActivity || 'friends',
+    statsVisible: userSettings?.statsVisible ?? true,
+    achievementsVisible: userSettings?.achievementsVisible ?? true,
+    allowFriendRequests: userSettings?.allowFriendRequests ?? true,
+    allowGameInvites: userSettings?.allowGameInvites ?? true,
+    showOnlineStatus: userSettings?.showOnlineStatus ?? true,
+    dataSharing: userSettings?.dataSharing ?? false,
   });
+
+  // Update local settings when userSettings changes
+  useEffect(() => {
+    if (userSettings) {
+      setSettings({
+        profileVisibility: userSettings.profileVisibility,
+        gameActivity: userSettings.gameActivity,
+        statsVisible: userSettings.statsVisible,
+        achievementsVisible: userSettings.achievementsVisible,
+        allowFriendRequests: userSettings.allowFriendRequests,
+        allowGameInvites: userSettings.allowGameInvites,
+        showOnlineStatus: userSettings.showOnlineStatus,
+        dataSharing: userSettings.dataSharing,
+      });
+    }
+  }, [userSettings]);
 
   const handleSave = async () => {
     setIsSaving(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // TODO: Implement actual privacy settings save
-      // await updatePrivacySettings(settings);
-      
+      await updatePrivacySettings(settings);
       success('Privacy settings saved', 'Your privacy preferences have been updated');
       onClose();
     } catch (saveError) {

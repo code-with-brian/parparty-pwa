@@ -323,10 +323,10 @@ function GameSummary({ game, players, scores, photos, orders = [], highlights, c
       )}
 
       {/* AI Highlights Manager */}
-      {currentPlayerId && gameData && (
+      {currentPlayerId && game && (
         <Suspense fallback={<GolfLoader text="Loading AI Highlights..." />}>
           <HighlightManager 
-            gameId={gameData.game.id}
+            gameId={game._id}
             playerId={currentPlayerId}
             className="w-full"
           />

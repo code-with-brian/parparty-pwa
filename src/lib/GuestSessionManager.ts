@@ -165,13 +165,23 @@ export class GuestSessionManager {
       });
 
       if (result.success) {
+        // Preserve active game ID before clearing session
+        const activeGameId = this.getActiveGameId();
+        
         // Clear local guest session data since it's now merged
         this.clearLocalSession();
+        
+        // If there was an active game, store it for the user session
+        if (activeGameId) {
+          localStorage.setItem('parparty_user_active_game', activeGameId);
+        }
+        
         logger.info('Guest session successfully merged to user account', {
           component: 'GuestSessionManager',
           action: 'mergeToUser',
           guestId,
           userId,
+          preservedActiveGame: activeGameId,
         });
       } else {
         throw new Error("Conversion failed");

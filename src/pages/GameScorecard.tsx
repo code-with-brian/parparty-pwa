@@ -1,8 +1,9 @@
 import { useParams, useNavigate, useBeforeUnload } from 'react-router-dom';
-import { useQuery, useMutation } from 'convex/react';
+import { useQuery, useMutation, useConvex } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import React, { useState, useEffect, Suspense, lazy, useCallback } from 'react';
+import { GuestSessionManager } from '@/lib/GuestSessionManager';
 import { Users, Clock, Target, Trophy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,12 +25,14 @@ import { useOptimizedQuery } from '@/hooks/useOptimizedQuery';
 export default function GameScorecard() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  const convex = useConvex();
   const [selectedHole, setSelectedHole] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'scorecard' | 'social' | 'leaderboard' | 'orders' | 'events'>('scorecard');
   const [showCamera, setShowCamera] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<Id<"players"> | null>(null);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
+  const [guestSessionManager] = useState(() => new GuestSessionManager(convex));
 
   // Real-time game state subscription with optimization
   const gameState = useOptimizedQuery(
@@ -63,17 +66,6 @@ export default function GameScorecard() {
     gameData?.game.courseId ? { courseId: gameData.game.courseId as Id<"courses"> } : "skip"
   );
 
-  // Debug logging for data flow
-  React.useEffect(() => {
-    console.log('🔍 GameScorecard Debug:');
-    console.log('- gameData?.game.courseId:', gameData?.game.courseId);
-    console.log('- courseData loaded:', !!courseData);
-    console.log('- holeCoordinates loaded:', !!holeCoordinates);
-    console.log('- holeCoordinates count:', holeCoordinates?.length);
-    if (holeCoordinates?.length) {
-      console.log('- First hole example:', holeCoordinates[0]);
-    }
-  }, [gameData?.game.courseId, courseData, holeCoordinates]);
 
   // Record score mutation
   const recordScore = useMutation(api.games.recordScore);
@@ -98,6 +90,46 @@ export default function GameScorecard() {
       }
     }
   }, [gameState]);
+
+  // Set active game ID in guest session when game loads and ensure guest is a player
+  useEffect(() => {
+    const setupGuestSession = async () => {
+      if (gameId && gameState && gameState.game.status !== "finished") {
+        try {
+          // Ensure we have a guest session first
+          const session = await guestSessionManager.getCurrentSession();
+          console.log('Guest session created/found:', session.id);
+          
+          // Check if this guest is already a player in the game
+          const isPlayerInGame = gameState.players.some(player => player.guestId === session.id);
+          console.log('Is guest already a player?', isPlayerInGame);
+          
+          if (!isPlayerInGame) {
+            // Auto-join the guest as a player
+            try {
+              const playerId = await convex.mutation(api.games.addPlayerToGame, {
+                gameId: gameId as Id<"games">,
+                name: session.name || `Player ${Date.now().toString().slice(-3)}`,
+                guestId: session.id,
+              });
+              console.log('Auto-joined guest as player:', playerId);
+              setCurrentPlayerId(playerId);
+            } catch (joinError) {
+              console.log('Could not auto-join guest (game might be full or finished):', joinError);
+            }
+          }
+          
+          // Set this game as active regardless
+          guestSessionManager.setActiveGameId(gameId as Id<"games">);
+          console.log('Set active game ID:', gameId);
+        } catch (error) {
+          console.error('Error setting up guest session:', error);
+        }
+      }
+    };
+
+    setupGuestSession();
+  }, [gameId, gameState, guestSessionManager, convex]);
 
   // Handle browser back button and page refresh
   useEffect(() => {

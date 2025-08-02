@@ -5,6 +5,7 @@ import { DeepLinkHandler } from './utils/deepLink';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { GolfLoader } from './components/ui/golf-loader';
 
 // Lazy load pages for better performance
@@ -30,8 +31,9 @@ function App() {
     <ErrorBoundary>
       <ConvexProvider client={convex}>
         <AuthProvider convex={convex}>
-          <ToastProvider>
-            <Router>
+          <ThemeProvider>
+            <ToastProvider>
+              <Router>
             <Suspense fallback={
               <div className="min-h-screen gradient-golf-green flex items-center justify-center">
                 <GolfLoader size="lg" text="Loading..." />
@@ -50,8 +52,9 @@ function App() {
                 <Route path="/stats" element={<StatsPage />} />
               </Routes>
             </Suspense>
-            </Router>
-          </ToastProvider>
+              </Router>
+            </ToastProvider>
+          </ThemeProvider>
         </AuthProvider>
       </ConvexProvider>
     </ErrorBoundary>

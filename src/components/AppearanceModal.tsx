@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -17,6 +17,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/contexts/ToastContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface AppearanceModalProps {
   isOpen: boolean;
@@ -65,33 +67,45 @@ const fontSizes = [
 
 export function AppearanceModal({ isOpen, onClose }: AppearanceModalProps) {
   const { success, error } = useToast();
+  const { userSettings, updateAppearanceSettings } = useAuth();
+  const { applyTheme } = useTheme();
   const [isSaving, setIsSaving] = useState(false);
   
   const [settings, setSettings] = useState<AppearanceSettings>({
-    theme: 'dark',
-    accentColor: 'cyan',
-    animationLevel: 'full',
-    soundEffects: true,
-    compactMode: false,
-    showAnimatedBackgrounds: true,
-    fontSize: 'medium',
-    highContrast: false,
+    theme: userSettings?.theme || 'dark',
+    accentColor: userSettings?.accentColor || 'cyan',
+    animationLevel: userSettings?.animationLevel || 'full',
+    soundEffects: userSettings?.soundEffects ?? true,
+    compactMode: userSettings?.compactMode ?? false,
+    showAnimatedBackgrounds: userSettings?.showAnimatedBackgrounds ?? true,
+    fontSize: userSettings?.fontSize || 'medium',
+    highContrast: userSettings?.highContrast ?? false,
   });
+
+  // Update local settings when userSettings changes
+  useEffect(() => {
+    if (userSettings) {
+      setSettings({
+        theme: userSettings.theme,
+        accentColor: userSettings.accentColor,
+        animationLevel: userSettings.animationLevel,
+        soundEffects: userSettings.soundEffects,
+        compactMode: userSettings.compactMode,
+        showAnimatedBackgrounds: userSettings.showAnimatedBackgrounds,
+        fontSize: userSettings.fontSize,
+        highContrast: userSettings.highContrast,
+      });
+    }
+  }, [userSettings]);
 
   const handleSave = async () => {
     setIsSaving(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await updateAppearanceSettings(settings);
       
-      // TODO: Implement actual appearance settings save
-      // await updateAppearanceSettings(settings);
-      
-      // Apply theme changes immediately (for demo)
-      if (settings.theme !== 'system') {
-        document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-      }
+      // Apply theme changes immediately
+      applyTheme(settings);
       
       success('Appearance updated', 'Your theme preferences have been saved');
       onClose();
@@ -103,6 +117,15 @@ export function AppearanceModal({ isOpen, onClose }: AppearanceModalProps) {
     }
   };
 
+  // Preview changes immediately as user selects them
+  const handleSettingChange = (key: keyof AppearanceSettings, value: any) => {
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    
+    // Apply preview changes immediately
+    applyTheme({ [key]: value });
+  };
+
   const ThemeSelector = () => (
     <div className="space-y-3">
       <h3 className="text-sm font-medium text-white">Theme</h3>
@@ -112,7 +135,7 @@ export function AppearanceModal({ isOpen, onClose }: AppearanceModalProps) {
           return (
             <button
               key={option.value}
-              onClick={() => setSettings(prev => ({ ...prev, theme: option.value }))}
+              onClick={() => handleSettingChange('theme', option.value)}
               className={`p-4 rounded-lg border text-center transition-all ${
                 settings.theme === option.value
                   ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
@@ -136,7 +159,7 @@ export function AppearanceModal({ isOpen, onClose }: AppearanceModalProps) {
         {accentColors.map((color) => (
           <button
             key={color.value}
-            onClick={() => setSettings(prev => ({ ...prev, accentColor: color.value }))}
+            onClick={() => handleSettingChange('accentColor', color.value)}
             className={`relative p-3 rounded-lg border transition-all ${
               settings.accentColor === color.value
                 ? 'border-white/40 scale-105'
@@ -173,7 +196,14 @@ export function AppearanceModal({ isOpen, onClose }: AppearanceModalProps) {
         {options.map((option) => (
           <button
             key={option.value}
-            onClick={() => onChange(option.value)}
+            onClick={() => {
+              onChange(option.value);
+              if (label === 'Animation Level') {
+                handleSettingChange('animationLevel', option.value);
+              } else if (label === 'Font Size') {
+                handleSettingChange('fontSize', option.value);
+              }
+            }}
             className={`w-full p-3 rounded-lg border text-left transition-all ${
               value === option.value
                 ? 'border-cyan-500 bg-cyan-500/10'
@@ -223,7 +253,19 @@ export function AppearanceModal({ isOpen, onClose }: AppearanceModalProps) {
         </div>
       </div>
       <button
-        onClick={() => onChange(!checked)}
+        onClick={() => {
+          onChange(!checked);
+          // Apply the toggle immediately for specific settings
+          if (label === 'Sound Effects') {
+            handleSettingChange('soundEffects', !checked);
+          } else if (label === 'Animated Backgrounds') {
+            handleSettingChange('showAnimatedBackgrounds', !checked);
+          } else if (label === 'Compact Mode') {
+            handleSettingChange('compactMode', !checked);
+          } else if (label === 'High Contrast') {
+            handleSettingChange('highContrast', !checked);
+          }
+        }}
         className={`relative w-12 h-6 rounded-full transition-colors ${
           checked ? 'bg-cyan-500' : 'bg-gray-600'
         }`}

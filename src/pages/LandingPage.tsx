@@ -10,9 +10,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Users, QrCode, Plus, ArrowRight, PlayCircle, Clock } from 'lucide-react';
 import { UserMenu } from '@/components/UserMenu';
+import { useAuth } from '@/contexts/AuthContext';
 export default function LandingPage() {
   const navigate = useNavigate();
   const [showJoinOptions, setShowJoinOptions] = useState(false);
+  const { user } = useAuth();
 
   // Get guest session from localStorage to check for active games
   const getGuestIdFromStorage = () => {
@@ -30,13 +32,34 @@ export default function LandingPage() {
 
   const guestId = getGuestIdFromStorage();
   
-  // Query for active games for this user/guest (only if we have a guestId)
-  const activeGames = useQuery(
+  // Debug logging
+  console.log('LandingPage debug:', {
+    user: !!user,
+    guestId,
+    hasGuestSession: !!localStorage.getItem('parparty_guest_session')
+  });
+  
+  // Query for active games for authenticated users
+  const userActiveGames = useQuery(
     api.games.getUserActiveGames,
-    guestId 
+    user 
+      ? { userId: user._id }
+      : "skip"
+  );
+
+  // Query for active games for guests (only if we have a guestId and no user)
+  const guestActiveGames = useQuery(
+    api.games.getUserActiveGames,
+    !user && guestId 
       ? { guestId: guestId as Id<"guests"> }
       : "skip"
   );
+
+  // Use the appropriate active games list
+  const activeGames = user ? userActiveGames : guestActiveGames;
+  
+  // Debug active games
+  console.log('Active games found:', activeGames?.length || 0, activeGames);
 
   // Get the most recent active game
   const lastActiveGame = activeGames && activeGames.length > 0 ? activeGames[0] : null;

@@ -9,6 +9,38 @@ export default defineSchema({
     tokenIdentifier: v.string(),
   }).index("by_token", ["tokenIdentifier"]),
 
+  userSettings: defineTable({
+    userId: v.id("users"),
+    // Appearance settings
+    theme: v.union(v.literal("light"), v.literal("dark"), v.literal("system")),
+    accentColor: v.string(), // "cyan", "blue", "purple", etc.
+    fontSize: v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
+    animationLevel: v.union(v.literal("none"), v.literal("reduced"), v.literal("full")),
+    soundEffects: v.boolean(),
+    compactMode: v.boolean(),
+    showAnimatedBackgrounds: v.boolean(),
+    highContrast: v.boolean(),
+    // Privacy settings
+    profileVisibility: v.union(v.literal("public"), v.literal("friends"), v.literal("private")),
+    gameActivity: v.union(v.literal("public"), v.literal("friends"), v.literal("private")),
+    statsVisible: v.boolean(),
+    achievementsVisible: v.boolean(),
+    allowFriendRequests: v.boolean(),
+    allowGameInvites: v.boolean(),
+    showOnlineStatus: v.boolean(),
+    dataSharing: v.boolean(),
+    // Notification preferences
+    pushNotificationsEnabled: v.boolean(),
+    notificationTypes: v.object({
+      gameUpdates: v.boolean(),
+      socialActivity: v.boolean(),
+      achievements: v.boolean(),
+      marketing: v.boolean(),
+    }),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
   guests: defineTable({
     deviceId: v.string(),
     name: v.optional(v.string()),

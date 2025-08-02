@@ -4,6 +4,32 @@
 
 @layer base {
   :root {
+    /* Dynamic Theme Colors - Default to Cyan */
+    --color-primary: 0, 187, 255;
+    --color-primary-hover: 14, 165, 233;
+    --color-secondary: 6, 182, 212;
+    --color-accent: 34, 197, 94;
+    
+    /* Font Sizes - Default to Medium */
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    
+    /* Animation Settings - Default to Full */
+    --animation-duration: 0.3s;
+    --transition-default: all 0.3s ease-in-out;
+    
+    /* Spacing - Default to Normal */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    
     /* ParParty Dark Party Theme */
     --background: 220 27% 8%;
     --foreground: 210 40% 98%;
@@ -25,6 +51,29 @@
     --input: 220 27% 18%;
     --ring: 142 76% 36%;
     --radius: 0.75rem;
+  }
+
+  /* Light Theme Override */
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
   }
 }
 
@@ -198,4 +247,139 @@
   .party-glow {
     box-shadow: 0 0 10px rgba(34, 197, 94, 0.1), 0 0 20px rgba(168, 85, 247, 0.05);
   }
+}
+
+/* Dynamic Theme System Classes */
+
+/* Font Size Classes */
+.text-small {
+  font-size: var(--font-size-base);
+}
+
+.text-medium {
+  font-size: var(--font-size-base);
+}
+
+.text-large {
+  font-size: var(--font-size-base);
+}
+
+/* Animation Level Classes */
+.animations-none * {
+  animation-duration: 0s !important;
+  transition: none !important;
+}
+
+.animations-reduced * {
+  animation-duration: var(--animation-duration);
+  transition: var(--transition-default);
+}
+
+.animations-full * {
+  animation-duration: var(--animation-duration);
+  transition: var(--transition-default);
+}
+
+/* Compact Mode */
+.compact-mode {
+  --spacing-xs: 0.125rem;
+  --spacing-sm: 0.25rem;
+  --spacing-md: 0.5rem;
+  --spacing-lg: 0.75rem;
+  --spacing-xl: 1rem;
+}
+
+.compact-mode .p-4 { padding: var(--spacing-sm); }
+.compact-mode .p-6 { padding: var(--spacing-md); }
+.compact-mode .gap-4 { gap: var(--spacing-sm); }
+.compact-mode .gap-6 { gap: var(--spacing-md); }
+.compact-mode .mb-4 { margin-bottom: var(--spacing-sm); }
+.compact-mode .mb-6 { margin-bottom: var(--spacing-md); }
+
+/* High Contrast Mode */
+.high-contrast {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 5%;
+  --border: 0 0% 20%;
+  --input: 0 0% 10%;
+}
+
+.high-contrast .glass {
+  background: rgba(0, 0, 0, 0.95) !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.high-contrast button {
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Animated Backgrounds */
+.animated-backgrounds .gradient-party-main {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 50%, #1e293b 75%, #0f172a 100%);
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-backgrounds .party-glow {
+  animation: glow-pulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes glow-pulse {
+  from {
+    box-shadow: 0 0 15px rgba(var(--color-primary), 0.15), 0 0 30px rgba(var(--color-secondary), 0.1);
+  }
+  to {
+    box-shadow: 0 0 25px rgba(var(--color-primary), 0.25), 0 0 40px rgba(var(--color-secondary), 0.15);
+  }
+}
+
+/* Dynamic Color Utilities */
+.bg-dynamic-primary {
+  background-color: rgb(var(--color-primary));
+}
+
+.bg-dynamic-primary-hover:hover {
+  background-color: rgb(var(--color-primary-hover));
+}
+
+.text-dynamic-primary {
+  color: rgb(var(--color-primary));
+}
+
+.border-dynamic-primary {
+  border-color: rgb(var(--color-primary));
+}
+
+.shadow-dynamic-primary {
+  box-shadow: 0 0 20px rgba(var(--color-primary), 0.3);
+}
+
+/* Gradient Updates with Dynamic Colors */
+.gradient-dynamic {
+  background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, rgb(var(--color-secondary)) 100%);
+}
+
+.text-gradient-dynamic {
+  background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, rgb(var(--color-accent)) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Update existing gradients to use dynamic colors when possible */
+.gradient-party-button {
+  background: linear-gradient(135deg, rgb(var(--color-primary)) 0%, rgb(var(--color-primary-hover)) 100%);
+}
+
+.neon-text {
+  color: rgb(var(--color-primary));
+  text-shadow: 0 0 10px rgba(var(--color-primary), 0.5);
 }

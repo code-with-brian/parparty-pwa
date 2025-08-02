@@ -15,6 +15,35 @@ interface User {
   tokenIdentifier: string;
 }
 
+interface UserSettings {
+  // Appearance settings
+  theme: 'light' | 'dark' | 'system';
+  accentColor: string;
+  fontSize: 'small' | 'medium' | 'large';
+  animationLevel: 'none' | 'reduced' | 'full';
+  soundEffects: boolean;
+  compactMode: boolean;
+  showAnimatedBackgrounds: boolean;
+  highContrast: boolean;
+  // Privacy settings
+  profileVisibility: 'public' | 'friends' | 'private';
+  gameActivity: 'public' | 'friends' | 'private';
+  statsVisible: boolean;
+  achievementsVisible: boolean;
+  allowFriendRequests: boolean;
+  allowGameInvites: boolean;
+  showOnlineStatus: boolean;
+  dataSharing: boolean;
+  // Notification preferences
+  pushNotificationsEnabled: boolean;
+  notificationTypes: {
+    gameUpdates: boolean;
+    socialActivity: boolean;
+    achievements: boolean;
+    marketing: boolean;
+  };
+}
+
 type ConversionTrigger = 'photo_share' | 'achievement' | 'reaction' | 'comment' | 'post';
 
 interface SignUpData {
@@ -26,11 +55,17 @@ interface SignUpData {
 
 interface AuthContextType {
   user: User | null;
+  userSettings: UserSettings | null;
   isLoading: boolean;
+  isSettingsLoading: boolean;
   isAuthenticated: boolean;
   login: (tokenIdentifier: string, name: string, email?: string, image?: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<Pick<User, 'name' | 'email' | 'image'>>) => Promise<void>;
+  updateAppearanceSettings: (settings: Partial<UserSettings>) => Promise<void>;
+  updatePrivacySettings: (settings: Partial<UserSettings>) => Promise<void>;
+  updateNotificationSettings: (settings: Partial<UserSettings>) => Promise<void>;
+  resetSettingsToDefaults: () => Promise<void>;
   promptSignUp: (trigger: ConversionTrigger, callback: () => void) => void;
   quickSignUp: (data: SignUpData) => Promise<void>;
   signInWithApple: () => Promise<void>;
@@ -46,7 +81,9 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(false);
   const [conversionContext, setConversionContext] = useState<{
     trigger: ConversionTrigger;
     callback: () => void;
@@ -76,6 +113,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
           
           if (userData) {
             setUser(userData);
+            // Load user settings for existing session
+            await loadUserSettings(userData._id);
           } else {
             // Token is invalid, clear it
             localStorage.removeItem('parparty_auth_token');
@@ -105,6 +144,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
     initializeNotifications();
   }, []);
 
+  // Load user settings
+  const loadUserSettings = async (userId: Id<"users">) => {
+    try {
+      setIsSettingsLoading(true);
+      const settings = await convex.query(api.userSettings.getUserSettings, { userId });
+      setUserSettings(settings);
+    } catch (error) {
+      console.error('Failed to load user settings:', error);
+      // Use defaults if loading fails
+      setUserSettings({
+        theme: 'dark',
+        accentColor: 'cyan',
+        fontSize: 'medium',
+        animationLevel: 'full',
+        soundEffects: true,
+        compactMode: false,
+        showAnimatedBackgrounds: true,
+        highContrast: false,
+        profileVisibility: 'public',
+        gameActivity: 'friends',
+        statsVisible: true,
+        achievementsVisible: true,
+        allowFriendRequests: true,
+        allowGameInvites: true,
+        showOnlineStatus: true,
+        dataSharing: false,
+        pushNotificationsEnabled: true,
+        notificationTypes: {
+          gameUpdates: true,
+          socialActivity: true,
+          achievements: true,
+          marketing: false,
+        },
+      });
+    } finally {
+      setIsSettingsLoading(false);
+    }
+  };
+
   const login = async (tokenIdentifier: string, name: string, email?: string, image?: string) => {
     try {
       setIsLoading(true);
@@ -125,6 +203,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
       if (userData) {
         setUser(userData);
         localStorage.setItem('parparty_auth_token', tokenIdentifier);
+        
+        // Load user settings after successful login
+        await loadUserSettings(userData._id);
       }
     } catch (error) {
       console.error('Error during login:', error);
@@ -136,6 +217,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
 
   const logout = () => {
     setUser(null);
+    setUserSettings(null);
     localStorage.removeItem('parparty_auth_token');
   };
 
@@ -155,6 +237,88 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
       setUser(prev => prev ? { ...prev, ...updates } : null);
     } catch (error) {
       console.error('Error updating profile:', error);
+      throw error;
+    }
+  };
+
+  const updateAppearanceSettings = async (settings: Partial<UserSettings>) => {
+    if (!user) throw new Error('No user logged in');
+
+    try {
+      await convex.mutation(api.userSettings.updateAppearanceSettings, {
+        userId: user._id,
+        theme: settings.theme,
+        accentColor: settings.accentColor,
+        fontSize: settings.fontSize,
+        animationLevel: settings.animationLevel,
+        soundEffects: settings.soundEffects,
+        compactMode: settings.compactMode,
+        showAnimatedBackgrounds: settings.showAnimatedBackgrounds,
+        highContrast: settings.highContrast,
+      });
+
+      // Update local state
+      setUserSettings(prev => prev ? { ...prev, ...settings } : null);
+    } catch (error) {
+      console.error('Error updating appearance settings:', error);
+      throw error;
+    }
+  };
+
+  const updatePrivacySettings = async (settings: Partial<UserSettings>) => {
+    if (!user) throw new Error('No user logged in');
+
+    try {
+      await convex.mutation(api.userSettings.updatePrivacySettings, {
+        userId: user._id,
+        profileVisibility: settings.profileVisibility,
+        gameActivity: settings.gameActivity,
+        statsVisible: settings.statsVisible,
+        achievementsVisible: settings.achievementsVisible,
+        allowFriendRequests: settings.allowFriendRequests,
+        allowGameInvites: settings.allowGameInvites,
+        showOnlineStatus: settings.showOnlineStatus,
+        dataSharing: settings.dataSharing,
+      });
+
+      // Update local state
+      setUserSettings(prev => prev ? { ...prev, ...settings } : null);
+    } catch (error) {
+      console.error('Error updating privacy settings:', error);
+      throw error;
+    }
+  };
+
+  const updateNotificationSettings = async (settings: Partial<UserSettings>) => {
+    if (!user) throw new Error('No user logged in');
+
+    try {
+      await convex.mutation(api.userSettings.updateNotificationSettings, {
+        userId: user._id,
+        pushNotificationsEnabled: settings.pushNotificationsEnabled,
+        notificationTypes: settings.notificationTypes,
+      });
+
+      // Update local state
+      setUserSettings(prev => prev ? { ...prev, ...settings } : null);
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+      throw error;
+    }
+  };
+
+  const resetSettingsToDefaults = async () => {
+    if (!user) throw new Error('No user logged in');
+
+    try {
+      await convex.mutation(api.userSettings.resetSettingsToDefaults, {
+        userId: user._id,
+      });
+
+      // Reload settings from server
+      await loadUserSettings(user._id);
+    } catch (error) {
+      console.error('Error resetting settings:', error);
       throw error;
     }
   };
@@ -185,6 +349,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
 
           if (result.success) {
             await login(tokenIdentifier, data.name, data.email);
+            
+            // Check if there was a preserved active game from guest conversion
+            const preservedGame = localStorage.getItem('parparty_user_active_game');
+            if (preservedGame) {
+              // The active game info is now handled by the backend after conversion
+              localStorage.removeItem('parparty_user_active_game');
+            }
             
             // Execute the stored callback
             if (conversionContext?.callback) {
@@ -244,6 +415,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
 
             if (conversionResult.success) {
               await login(tokenIdentifier, result.user.name, result.user.email, result.user.avatarUrl);
+              
+              // Check if there was a preserved active game from guest conversion
+              const preservedGame = localStorage.getItem('parparty_user_active_game');
+              if (preservedGame) {
+                // The active game info is now handled by the backend after conversion
+                localStorage.removeItem('parparty_user_active_game');
+              }
+              
               return;
             }
           } catch (error) {
@@ -292,11 +471,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
 
   const value: AuthContextType = {
     user,
+    userSettings,
     isLoading,
+    isSettingsLoading,
     isAuthenticated: !!user,
     login,
     logout,
     updateProfile,
+    updateAppearanceSettings,
+    updatePrivacySettings,
+    updateNotificationSettings,
+    resetSettingsToDefaults,
     promptSignUp,
     quickSignUp,
     signInWithApple,
