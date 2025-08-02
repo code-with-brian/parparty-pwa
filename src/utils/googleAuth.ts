@@ -215,78 +215,30 @@ export class GoogleAuthManager {
   }
 
   /**
-   * Web-specific sign-in using Google Identity Services
+   * Web-specific sign-in using redirect flow
    */
   private static async signInWithWeb(): Promise<GoogleAuthResult> {
-    return new Promise((resolve) => {
-      if (typeof window !== 'undefined' && (window as any).google) {
-        try {
-          // Create a temporary div for the Google Sign-In button
-          const buttonDiv = document.createElement('div');
-          buttonDiv.id = 'google-signin-button';
-          buttonDiv.style.position = 'fixed';
-          buttonDiv.style.top = '-9999px';
-          document.body.appendChild(buttonDiv);
-
-          // Store the resolve function to call it from the callback
-          (window as any).__googleSignInResolve = resolve;
-          
-          // Update the callback to use our resolve function
-          (window as any).google.accounts.id.initialize({
-            client_id: import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID || '860809923710-040a8v1e6jj8jvcaa8qicdaebbc362p9.apps.googleusercontent.com',
-            callback: (response: any) => {
-              this.processWebCredentialResponse(response).then((result) => {
-                if ((window as any).__googleSignInResolve) {
-                  (window as any).__googleSignInResolve(result);
-                  delete (window as any).__googleSignInResolve;
-                }
-                // Clean up the button
-                const button = document.getElementById('google-signin-button');
-                if (button) button.remove();
-              });
-            },
-            auto_select: false,
-            cancel_on_tap_outside: true,
-          });
-
-          // Render the button
-          (window as any).google.accounts.id.renderButton(
-            buttonDiv,
-            { 
-              theme: 'outline',
-              size: 'large',
-              type: 'standard',
-              text: 'signin_with',
-              width: 250
-            }
-          );
-
-          // Programmatically click the button
-          setTimeout(() => {
-            const button = buttonDiv.querySelector('[role="button"]') as HTMLElement;
-            if (button) {
-              button.click();
-            } else {
-              resolve({
-                success: false,
-                error: 'Could not trigger Google Sign-In'
-              });
-            }
-          }, 100);
-          
-        } catch (error) {
-          resolve({
-            success: false,
-            error: 'Failed to initialize Google Sign-In'
-          });
-        }
-      } else {
-        resolve({
-          success: false,
-          error: 'Google Identity Services not loaded'
-        });
-      }
-    });
+    const clientId = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID || '860809923710-040a8v1e6jj8jvcaa8qicdaebbc362p9.apps.googleusercontent.com';
+    const redirectUri = `${window.location.origin}/`;
+    const scope = 'profile email';
+    
+    // Use the correct OAuth 2.0 endpoint for redirect flow
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${encodeURIComponent(clientId)}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `response_type=token&` +
+      `scope=${encodeURIComponent(scope)}&` +
+      `access_type=online`;
+    
+    // Store current URL to return to after auth
+    sessionStorage.setItem('google_auth_return_url', window.location.href);
+    sessionStorage.setItem('google_auth_pending', 'true');
+    
+    // Redirect to Google OAuth
+    window.location.href = authUrl;
+    
+    // This won't actually return since we're redirecting
+    return { success: false, error: 'Redirecting to Google...' };
   }
 
 
@@ -376,6 +328,64 @@ export class GoogleAuthManager {
         error: (error as Error).message || 'Failed to get current user'
       };
     }
+  }
+
+  /**
+   * Check if we're returning from an OAuth redirect and handle it
+   */
+  static async handleOAuthCallback(): Promise<GoogleAuthResult | null> {
+    // Check if we're expecting an OAuth callback
+    const authPending = sessionStorage.getItem('google_auth_pending');
+    if (!authPending) return null;
+
+    // Check for access token in URL hash (implicit flow)
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    
+    if (accessToken) {
+      // Clear the auth pending flag and hash
+      sessionStorage.removeItem('google_auth_pending');
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      
+      try {
+        // Use the access token to get user info
+        const userInfoResponse = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${accessToken}`);
+        const userInfo = await userInfoResponse.json();
+        
+        if (userInfoResponse.ok) {
+          return {
+            success: true,
+            user: {
+              email: userInfo.email || '',
+              name: userInfo.name || 'Google User',
+              providerId: userInfo.id || 'google_user',
+              avatarUrl: userInfo.picture,
+            }
+          };
+        } else {
+          throw new Error('Failed to fetch user info');
+        }
+      } catch (error) {
+        console.error('Error processing OAuth callback:', error);
+        return {
+          success: false,
+          error: 'Failed to process authentication response'
+        };
+      }
+    }
+    
+    // Check for error in callback
+    const error = params.get('error');
+    if (error) {
+      sessionStorage.removeItem('google_auth_pending');
+      return {
+        success: false,
+        error: `Authentication failed: ${error}`
+      };
+    }
+    
+    return null;
   }
 
   /**

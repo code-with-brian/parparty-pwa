@@ -52,10 +52,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
     callback: () => void;
   } | null>(null);
 
-  // Check for existing session on mount
+  // Check for existing session on mount and handle OAuth callbacks
   useEffect(() => {
     const checkExistingSession = async () => {
       try {
+        // First, check for OAuth callback
+        const oauthResult = await googleAuth.handleOAuthCallback();
+        if (oauthResult && oauthResult.success && oauthResult.user) {
+          // Handle successful OAuth callback
+          const tokenIdentifier = `google_${oauthResult.user.providerId}_${Date.now()}`;
+          await login(tokenIdentifier, oauthResult.user.name, oauthResult.user.email, oauthResult.user.avatarUrl);
+          return;
+        } else if (oauthResult && !oauthResult.success) {
+          console.error('OAuth callback failed:', oauthResult.error);
+        }
+
+        // Check for existing stored session
         const storedToken = localStorage.getItem('parparty_auth_token');
         if (storedToken) {
           const userData = await convex.query(api.users.getByToken, {
@@ -261,50 +273,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, convex }) 
     try {
       setIsLoading(true);
 
-      const result = await googleAuth.authenticate();
+      // This will redirect to Google OAuth, so we don't expect a response
+      await googleAuth.authenticate();
       
-      if (result.success && result.user) {
-        // Generate a unique token identifier for Google user
-        const tokenIdentifier = `google_${result.user.providerId}_${Date.now()}`;
-        
-        // Handle guest conversion if we have guest session
-        const guestSession = localStorage.getItem('parparty_guest_session');
-        if (guestSession) {
-          try {
-            const session = JSON.parse(guestSession);
-            const conversionResult = await convex.mutation(api.userConversion.convertGuestToUser, {
-              guestId: session.id,
-              name: result.user.name,
-              email: result.user.email,
-              tokenIdentifier,
-              image: result.user.avatarUrl,
-            });
-
-            if (conversionResult.success) {
-              await login(tokenIdentifier, result.user.name, result.user.email, result.user.avatarUrl);
-              return;
-            }
-          } catch (error) {
-            console.error('Guest conversion failed, creating new user:', error);
-          }
-        }
-
-        // Fallback: create new user or login existing Google user
-        await login(tokenIdentifier, result.user.name, result.user.email, result.user.avatarUrl);
-        
-      } else {
-        throw new Error(result.error || 'Google Sign-In failed');
-      }
     } catch (error: any) {
       console.error('Google Sign-In error:', error);
+      setIsLoading(false);
       
-      // Don't show error for user cancellation
-      if (!error.message?.includes('cancelled') && !error.message?.includes('USER_CANCELLED')) {
+      // Don't show error for redirect or cancellation
+      if (!error.message?.includes('cancelled') && 
+          !error.message?.includes('USER_CANCELLED') &&
+          !error.message?.includes('Redirecting')) {
         throw error;
       }
-    } finally {
-      setIsLoading(false);
     }
+    // Note: setIsLoading(false) will be handled when the page loads after redirect
   };
 
   const value: AuthContextType = {
