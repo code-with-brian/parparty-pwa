@@ -18,6 +18,7 @@ import type * as analytics from "../analytics.js";
 import type * as courses from "../courses.js";
 import type * as foodOrders from "../foodOrders.js";
 import type * as games from "../games.js";
+import type * as golfApiProxy from "../golfApiProxy.js";
 import type * as golfCourses from "../golfCourses.js";
 import type * as guests from "../guests.js";
 import type * as highlights from "../highlights.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   courses: typeof courses;
   foodOrders: typeof foodOrders;
   games: typeof games;
+  golfApiProxy: typeof golfApiProxy;
   golfCourses: typeof golfCourses;
   guests: typeof guests;
   highlights: typeof highlights;

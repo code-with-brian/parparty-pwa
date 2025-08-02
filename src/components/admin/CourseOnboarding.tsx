@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useConvexMutation } from '@/hooks/useConvexMutation';
+import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,23 +16,53 @@ import { GolfDataImporter } from '@/utils/golfDataImporter';
 type Id<T> = string;
 
 export const CourseOnboarding: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [apiKey, setApiKey] = useState('');
+  // Pre-populate search query from URL parameter if present
+  const urlParams = new URLSearchParams(window.location.search);
+  const [searchQuery, setSearchQuery] = useState(urlParams.get('location') || '');
+  const [apiKey, setApiKey] = useState('942c4412-8642-49dc-8144-e78c8b5aadec');
   const [importStatus, setImportStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [importResults, setImportResults] = useState<any[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
 
   const upsertCourse = useConvexMutation(api.golfCourses.upsertGolfCourse);
-  const batchImportCourses = useConvexMutation(api.golfCourses.batchImportCourses);
+  const batchImportCourses = useConvexMutation(api.golfCourses.batchImportCoursesWithCoordinates);
+  const importCourseWithCoordinates = useConvexMutation(api.golfCourses.importCourseWithCoordinates);
   const importSampleData = useConvexMutation(api.golfCourses.importSamplePeterboroughCourses);
+
+  // Golf API proxy actions to bypass CORS
+  const searchClubsByLocation = useAction(api.golfApiProxy.searchClubsByLocation);
+  const getCourseCoordinates = useAction(api.golfApiProxy.getCourseCoordinates);
+  const testApiKey = useAction(api.golfApiProxy.testApiKey);
 
   const importer = new GolfDataImporter(apiKey);
 
-  // Import sample Peterborough courses
+  // Import sample Peterborough course with coordinates using new structure
   const handleImportSampleData = async () => {
     setImportStatus('loading');
     try {
-      const result = await importSampleData({});
+      const peterboroughCourse = importer.getSampleCourseData("0121318782152310");
+      if (!peterboroughCourse) {
+        throw new Error("Peterborough course data not found");
+      }
+      
+      const coordinates = importer.getFullPeterboroughCoordinates().coordinates;
+      
+      const result = await importCourseWithCoordinates({
+        courseData: {
+          externalId: peterboroughCourse.externalId,
+          clubName: peterboroughCourse.clubName,
+          courseName: peterboroughCourse.courseName,
+          address: peterboroughCourse.address,
+          city: peterboroughCourse.city,
+          state: peterboroughCourse.state,
+          country: peterboroughCourse.country,
+          courseId: peterboroughCourse.courseId,
+          numHoles: peterboroughCourse.numHoles,
+          hasGPS: peterboroughCourse.hasGPS,
+        },
+        holeCoordinates: importer.transformHoleCoordinates(peterboroughCourse.courseId, coordinates),
+      });
+      
       setImportStatus('success');
       setImportResults([result]);
     } catch (error) {
@@ -40,12 +71,36 @@ export const CourseOnboarding: React.FC = () => {
     }
   };
 
-  // Import all sample courses with full data
+  // Import all sample courses with full coordinate data using new structure
   const handleImportAllSamples = async () => {
     setImportStatus('loading');
     try {
-      const courses = importer.getAllSampleCourses();
-      const result = await batchImportCourses({ courses });
+      const sampleCourses = importer.getAllSampleCourses();
+      
+      // Transform to new structure with separate course data and hole coordinates
+      const coursesToImport = sampleCourses.map(course => {
+        const coordinates = course.courseId === "0121318782152310" 
+          ? importer.getFullPeterboroughCoordinates().coordinates 
+          : undefined;
+        
+        return {
+          courseData: {
+            externalId: course.externalId,
+            clubName: course.clubName,
+            courseName: course.courseName,
+            address: course.address,
+            city: course.city,
+            state: course.state,
+            country: course.country,
+            courseId: course.courseId,
+            numHoles: course.numHoles,
+            hasGPS: course.hasGPS,
+          },
+          holeCoordinates: importer.transformHoleCoordinates(course.courseId, coordinates),
+        };
+      });
+      
+      const result = await batchImportCourses({ courses: coursesToImport });
       setImportStatus('success');
       setImportResults(result);
     } catch (error) {
@@ -54,20 +109,104 @@ export const CourseOnboarding: React.FC = () => {
     }
   };
 
-  // Search for courses by location
+  // Search for courses by location using backend proxy to bypass CORS
   const handleSearch = async () => {
     if (!apiKey) {
       alert('Please enter your Golf API key first');
       return;
     }
     
-    // This would normally call the Golf API
-    // For demo, we'll show the sample data
-    const sampleCourses = importer.getAllSampleCourses();
-    setImportResults(sampleCourses.map(course => ({
-      ...course,
-      selected: false
-    })));
+    if (!searchQuery.trim()) {
+      alert('Please enter a search location');
+      return;
+    }
+    
+    setImportStatus('loading');
+    try {
+      // First test the API key
+      const testResult = await testApiKey({ apiKey });
+      console.log('🔑 API Key test result:', testResult);
+      
+      if (!testResult.success) {
+        throw new Error(testResult.message || 'Invalid API key');
+      }
+
+      // Use backend proxy to search Golf API
+      const result = await searchClubsByLocation({ 
+        location: searchQuery, 
+        apiKey 
+      });
+
+      console.log('🔍 Search result:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Search failed');
+      }
+
+      // Transform the API response to match our format
+      const allCourses = result.data.clubs?.flatMap((club: any) =>
+        club.courses?.map((course: any) => ({
+          ...importer.transformClubData(club, course),
+          selected: false,
+          distance: club.distance || ''
+        })) || []
+      ) || [];
+
+      // Filter courses to only show those from the searched location/region
+      // For "Peterborough, ON, Canada" - look for Peterborough AND ON/Ontario AND Canada
+      const searchLower = searchQuery.toLowerCase();
+      const courses = allCourses.filter((course: any) => {
+        const city = course.city?.toLowerCase() || '';
+        const state = course.state?.toLowerCase() || '';
+        const country = course.country?.toLowerCase() || '';
+        
+        // For Canadian searches, be more specific
+        if (searchLower.includes('canada') || searchLower.includes('on')) {
+          return (
+            country.includes('canada') &&
+            (state.includes('on') || state.includes('ontario')) &&
+            (searchLower.includes('peterborough') ? city.includes('peterborough') : true)
+          );
+        }
+        
+        // For other locations, use broader matching
+        const searchTerms = searchQuery.toLowerCase().split(',').map(term => term.trim());
+        const courseLocation = `${city} ${state} ${country}`;
+        return searchTerms.some(term => courseLocation.includes(term));
+      });
+
+      console.log(`📍 Filtered ${courses.length} courses from ${allCourses.length} total courses`);
+      console.log(`🏌️ Sample filtered courses:`, courses.slice(0, 3).map(c => ({
+        name: c.clubName,
+        city: c.city,
+        state: c.state,
+        country: c.country
+      })));
+
+      setImportResults(courses);
+      setImportStatus('idle');
+      
+      if (courses.length === 0) {
+        alert('No courses found for this location. Try a different search.');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setImportStatus('idle');
+      
+      // Show error and offer sample data
+      const useaSampleData = confirm(
+        `API search failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
+        'Would you like to use sample data instead?'
+      );
+      
+      if (useaSampleData) {
+        const sampleCourses = importer.getAllSampleCourses();
+        setImportResults(sampleCourses.map(course => ({
+          ...course,
+          selected: false
+        })));
+      }
+    }
   };
 
   // Toggle course selection
@@ -79,7 +218,7 @@ export const CourseOnboarding: React.FC = () => {
     );
   };
 
-  // Import selected courses
+  // Import selected courses with coordinates using backend proxy
   const handleImportSelected = async () => {
     if (selectedCourses.length === 0) {
       alert('Please select at least one course to import');
@@ -88,12 +227,45 @@ export const CourseOnboarding: React.FC = () => {
 
     setImportStatus('loading');
     try {
-      const coursesToImport = importResults
-        .filter(course => selectedCourses.includes(course.courseId))
-        .map(course => ({
-          ...course,
-          externalId: course.courseId // Ensure externalId is set
-        }));
+      const coursesToImport = [];
+      
+      // For each selected course, fetch its coordinates using backend proxy
+      for (const courseId of selectedCourses) {
+        const course = importResults.find(c => c.courseId === courseId);
+        if (!course) continue;
+        
+        console.log(`📍 Fetching coordinates for ${course.clubName}...`);
+        
+        // Fetch coordinates using backend proxy
+        const coordResult = await getCourseCoordinates({
+          courseId: course.courseId,
+          apiKey
+        });
+        
+        let coordinates = undefined;
+        if (coordResult.success && coordResult.data.coordinates) {
+          coordinates = coordResult.data.coordinates;
+          console.log(`✅ Got ${coordinates.length} coordinates for ${course.clubName}`);
+        } else {
+          console.log(`⚠️ No coordinates available for ${course.clubName}`);
+        }
+        
+        coursesToImport.push({
+          courseData: {
+            externalId: course.externalId || course.courseId,
+            clubName: course.clubName,
+            courseName: course.courseName,
+            address: course.address,
+            city: course.city,
+            state: course.state,
+            country: course.country,
+            courseId: course.courseId,
+            numHoles: course.numHoles,
+            hasGPS: course.hasGPS,
+          },
+          holeCoordinates: importer.transformHoleCoordinates(course.courseId, coordinates),
+        });
+      }
 
       const result = await batchImportCourses({ courses: coursesToImport });
       setImportStatus('success');

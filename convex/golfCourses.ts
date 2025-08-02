@@ -1007,7 +1007,230 @@ export const getAllHoleCoordinatesForCourse = query({
   },
 });
 
-// Batch import courses
+// Import course with hole coordinates using new table structure
+export const importCourseWithCoordinates = mutation({
+  args: {
+    courseData: v.object({
+      externalId: v.string(),
+      clubName: v.string(),
+      courseName: v.string(),
+      address: v.string(),
+      city: v.string(),
+      state: v.string(),
+      country: v.string(),
+      courseId: v.string(),
+      numHoles: v.number(),
+      hasGPS: v.boolean(),
+    }),
+    holeCoordinates: v.array(v.object({
+      holeNumber: v.number(),
+      par: v.number(),
+      coordinates: v.array(v.object({
+        type: v.string(),
+        location: v.number(),
+        latitude: v.number(),
+        longitude: v.number(),
+        poi: v.number(),
+      })),
+    })),
+  },
+  handler: async (ctx, args) => {
+    try {
+      // First, create or update the course
+      const existing = await ctx.db
+        .query("courses")
+        .filter((q) => q.eq(q.field("externalId"), args.courseData.courseId))
+        .first();
+
+      let courseId;
+      if (existing) {
+        // Update existing course
+        await ctx.db.patch(existing._id, {
+          name: args.courseData.courseName,
+          clubName: args.courseData.clubName,
+          address: args.courseData.address,
+          city: args.courseData.city,
+          state: args.courseData.state,
+          country: args.courseData.country,
+          externalId: args.courseData.courseId,
+          totalHoles: args.courseData.numHoles,
+          hasGPS: args.courseData.hasGPS,
+          totalPar: args.holeCoordinates.reduce((sum, hole) => sum + hole.par, 0),
+        });
+        courseId = existing._id;
+      } else {
+        // Create new course
+        courseId = await ctx.db.insert("courses", {
+          name: args.courseData.courseName,
+          clubName: args.courseData.clubName,
+          address: args.courseData.address,
+          city: args.courseData.city,
+          state: args.courseData.state,
+          country: args.courseData.country,
+          externalId: args.courseData.courseId,
+          totalHoles: args.courseData.numHoles,
+          hasGPS: args.courseData.hasGPS,
+          totalPar: args.holeCoordinates.reduce((sum, hole) => sum + hole.par, 0),
+          isActive: true,
+          createdAt: Date.now(),
+        });
+      }
+
+      // Clear existing hole coordinates for this course
+      const existingHoleCoords = await ctx.db
+        .query("holeCoordinates")
+        .filter((q) => q.eq(q.field("courseId"), courseId))
+        .collect();
+
+      for (const holeCoord of existingHoleCoords) {
+        await ctx.db.delete(holeCoord._id);
+      }
+
+      // Insert new hole coordinates
+      const insertedHoles = [];
+      for (const hole of args.holeCoordinates) {
+        const holeId = await ctx.db.insert("holeCoordinates", {
+          courseId,
+          holeNumber: hole.holeNumber,
+          par: hole.par,
+          coordinates: hole.coordinates,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+        insertedHoles.push({ holeNumber: hole.holeNumber, holeId });
+      }
+
+      return {
+        success: true,
+        courseId,
+        clubName: args.courseData.clubName,
+        holesImported: insertedHoles.length,
+        holes: insertedHoles,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage, clubName: args.courseData.clubName };
+    }
+  },
+});
+
+// Batch import multiple courses
+export const batchImportCoursesWithCoordinates = mutation({
+  args: {
+    courses: v.array(v.object({
+      courseData: v.object({
+        externalId: v.string(),
+        clubName: v.string(),
+        courseName: v.string(),
+        address: v.string(),
+        city: v.string(),
+        state: v.string(),
+        country: v.string(),
+        courseId: v.string(),
+        numHoles: v.number(),
+        hasGPS: v.boolean(),
+      }),
+      holeCoordinates: v.array(v.object({
+        holeNumber: v.number(),
+        par: v.number(),
+        coordinates: v.array(v.object({
+          type: v.string(),
+          location: v.number(),
+          latitude: v.number(),
+          longitude: v.number(),
+          poi: v.number(),
+        })),
+      })),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const results = [];
+    
+    for (const course of args.courses) {
+      try {
+        // Inline the course import logic to avoid internal function calls
+        const existing = await ctx.db
+          .query("courses")
+          .filter((q) => q.eq(q.field("externalId"), course.courseData.courseId))
+          .first();
+
+        let courseId;
+        if (existing) {
+          await ctx.db.patch(existing._id, {
+            name: course.courseData.courseName,
+            clubName: course.courseData.clubName,
+            address: course.courseData.address,
+            city: course.courseData.city,
+            state: course.courseData.state,
+            country: course.courseData.country,
+            externalId: course.courseData.courseId,
+            totalHoles: course.courseData.numHoles,
+            hasGPS: course.courseData.hasGPS,
+            totalPar: course.holeCoordinates.reduce((sum, hole) => sum + hole.par, 0),
+          });
+          courseId = existing._id;
+        } else {
+          courseId = await ctx.db.insert("courses", {
+            name: course.courseData.courseName,
+            clubName: course.courseData.clubName,
+            address: course.courseData.address,
+            city: course.courseData.city,
+            state: course.courseData.state,
+            country: course.courseData.country,
+            externalId: course.courseData.courseId,
+            totalHoles: course.courseData.numHoles,
+            hasGPS: course.courseData.hasGPS,
+            totalPar: course.holeCoordinates.reduce((sum, hole) => sum + hole.par, 0),
+            isActive: true,
+            createdAt: Date.now(),
+          });
+        }
+
+        // Clear existing hole coordinates
+        const existingHoleCoords = await ctx.db
+          .query("holeCoordinates")
+          .filter((q) => q.eq(q.field("courseId"), courseId))
+          .collect();
+
+        for (const holeCoord of existingHoleCoords) {
+          await ctx.db.delete(holeCoord._id);
+        }
+
+        // Insert new hole coordinates
+        const insertedHoles = [];
+        for (const hole of course.holeCoordinates) {
+          const holeId = await ctx.db.insert("holeCoordinates", {
+            courseId,
+            holeNumber: hole.holeNumber,
+            par: hole.par,
+            coordinates: hole.coordinates,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+          insertedHoles.push({ holeNumber: hole.holeNumber, holeId });
+        }
+
+        results.push({
+          success: true,
+          courseId,
+          clubName: course.courseData.clubName,
+          holesImported: insertedHoles.length,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        results.push({ 
+          success: false, 
+          error: errorMessage, 
+          clubName: course.courseData.clubName 
+        });
+      }
+    }
+    
+    return results;
+  },
+});
+
+// Legacy batch import courses (kept for backwards compatibility)
 export const batchImportCourses = mutation({
   args: {
     courses: v.array(
