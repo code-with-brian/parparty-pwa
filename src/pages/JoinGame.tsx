@@ -11,6 +11,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { GuestSessionManager } from '@/lib/GuestSessionManager';
 import { motion } from 'framer-motion';
 import { GolfLoader } from '@/components/ui/golf-loader';
+import { UserMenu } from '@/components/UserMenu';
 
 interface GamePreview {
   id: Id<"games">;
@@ -264,7 +265,14 @@ export default function JoinGame() {
   }
 
   return (
-    <div className="min-h-screen gradient-party-main flex items-center justify-center p-4">
+    <div className="min-h-screen gradient-party-main flex items-center justify-center p-4 relative">
+      {/* Top Navigation */}
+      <div className="absolute top-0 left-0 right-0 z-20 p-4">
+        <div className="flex justify-end">
+          <UserMenu />
+        </div>
+      </div>
+      
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

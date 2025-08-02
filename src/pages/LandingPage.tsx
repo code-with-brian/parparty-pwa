@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Users, QrCode, Plus, ArrowRight, PlayCircle, Clock } from 'lucide-react';
+import { UserMenu } from '@/components/UserMenu';
 export default function LandingPage() {
   const navigate = useNavigate();
   const [showJoinOptions, setShowJoinOptions] = useState(false);
@@ -42,6 +43,13 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen gradient-party-hero relative overflow-hidden">
+      {/* Top Navigation */}
+      <div className="absolute top-0 left-0 right-0 z-20 p-4">
+        <div className="flex justify-end">
+          <UserMenu />
+        </div>
+      </div>
+      
       {/* Subtle background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-green-500/5 rounded-full blur-3xl"></div>

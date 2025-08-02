@@ -1,6 +1,8 @@
 import { ArrowLeft, MoreHorizontal, Share } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import { UserMenu } from '@/components/UserMenu';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavigationHeaderProps {
   title: string;
@@ -10,6 +12,7 @@ interface NavigationHeaderProps {
   onMore?: () => void;
   showBackButton?: boolean;
   rightAction?: React.ReactNode;
+  showUserMenu?: boolean;
 }
 
 export function NavigationHeader({
@@ -19,8 +22,10 @@ export function NavigationHeader({
   onShare,
   onMore,
   showBackButton = true,
-  rightAction
+  rightAction,
+  showUserMenu = true
 }: NavigationHeaderProps) {
+  const { isAuthenticated } = useAuth();
   return (
     <div className="relative">
       {/* Premium glass header */}
@@ -92,6 +97,11 @@ export function NavigationHeader({
             >
               <MoreHorizontal className="w-4 h-4 text-white" />
             </motion.button>
+          )}
+          
+          {/* User Menu */}
+          {showUserMenu && (
+            <UserMenu />
           )}
         </div>
       </div>

@@ -14,6 +14,7 @@ const LockerRoom = lazy(() => import('./pages/LockerRoom'));
 const Test = lazy(() => import('./pages/Test'));
 const GameCreator = lazy(() => import('./pages/GameCreator'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
+const UserSettings = lazy(() => import('./pages/UserSettings'));
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -42,6 +43,8 @@ function App() {
                 <Route path="/join" element={<JoinGame />} />
                 <Route path="/game/:gameId" element={<GameScorecard />} />
                 <Route path="/finish/:gameId" element={<LockerRoom />} />
+                <Route path="/settings" element={<UserSettings />} />
+                <Route path="/stats" element={<Navigate to="/settings?tab=profile" />} />
               </Routes>
             </Suspense>
           </Router>
