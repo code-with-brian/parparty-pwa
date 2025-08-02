@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, 
   User as UserIcon, 
@@ -13,7 +13,10 @@ import {
   Mail,
   Phone,
   MapPin,
-  Save
+  Save,
+  Loader2,
+  AlertCircle,
+  CheckCircle2
 } from 'lucide-react';
 import { MobileLayout } from '@/components/layout/MobileLayout';
 import { Avatar } from '@/components/ui/avatar';
@@ -22,6 +25,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationManager } from '@/utils/notificationManager';
+import { AvatarUploadModal } from '@/components/AvatarUploadModal';
+import { useToast } from '@/contexts/ToastContext';
 
 type TabType = 'profile' | 'notifications' | 'account' | 'help';
 
@@ -29,9 +34,14 @@ export default function UserSettings() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, updateProfile, logout, isAuthenticated } = useAuth();
+  const { success, error } = useToast();
   const [activeTab, setActiveTab] = useState<TabType>((searchParams.get('tab') as TabType) || 'profile');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+  const [isTogglingPush, setIsTogglingPush] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   
   // Profile form state
   const [formData, setFormData] = useState({
@@ -51,14 +61,28 @@ export default function UserSettings() {
   });
 
   React.useEffect(() => {
-    // Check push notification permission status
-    const isEnabled = notificationManager.isEnabled();
-    const permissionStatus = notificationManager.getPermissionStatus();
-    setNotifications(prev => ({ 
-      ...prev, 
-      pushEnabled: isEnabled && permissionStatus === 'granted' 
-    }));
-  }, []);
+    // Check push notification permission status with error handling
+    const loadNotificationSettings = async () => {
+      try {
+        setIsLoadingNotifications(true);
+        
+        const isEnabled = notificationManager.isEnabled();
+        const permissionStatus = notificationManager.getPermissionStatus();
+        
+        setNotifications(prev => ({ 
+          ...prev, 
+          pushEnabled: isEnabled && permissionStatus === 'granted' 
+        }));
+      } catch (loadError) {
+        console.error('Failed to load notification settings:', loadError);
+        error('Failed to load notification settings', 'Please try refreshing the page');
+      } finally {
+        setIsLoadingNotifications(false);
+      }
+    };
+
+    loadNotificationSettings();
+  }, [error]);
 
   if (!isAuthenticated || !user) {
     navigate('/');
@@ -67,26 +91,86 @@ export default function UserSettings() {
 
   const handleSaveProfile = async () => {
     setIsSaving(true);
+    
     try {
+      // Basic validation
+      if (!formData.name.trim()) {
+        throw new Error('Name is required');
+      }
+      if (!formData.email.trim()) {
+        throw new Error('Email is required');
+      }
+      
+      // Email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        throw new Error('Please enter a valid email address');
+      }
+      
       await updateProfile({
-        name: formData.name,
-        email: formData.email
+        name: formData.name.trim(),
+        email: formData.email.trim()
       });
+      
       setIsEditing(false);
-    } catch (error) {
-      console.error('Failed to update profile:', error);
+      success('Profile updated successfully!', 'Your changes have been saved');
+    } catch (saveError) {
+      const errorMessage = saveError instanceof Error ? saveError.message : 'Failed to update profile';
+      error('Failed to update profile', errorMessage);
+      console.error('Failed to update profile:', saveError);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleTogglePushNotifications = async () => {
-    if (!notifications.pushEnabled) {
-      const granted = await notificationManager.requestPermission();
-      setNotifications(prev => ({ ...prev, pushEnabled: granted }));
-    } else {
-      // In a real app, you'd disable push notifications on the server
-      setNotifications(prev => ({ ...prev, pushEnabled: false }));
+    setIsTogglingPush(true);
+    
+    try {
+      if (!notifications.pushEnabled) {
+        const granted = await notificationManager.requestPermission();
+        if (granted) {
+          setNotifications(prev => ({ ...prev, pushEnabled: true }));
+          success('Push notifications enabled!', 'You will now receive game updates');
+        } else {
+          error('Permission denied', 'Please enable notifications in your browser settings');
+        }
+      } else {
+        // In a real app, you'd disable push notifications on the server
+        setNotifications(prev => ({ ...prev, pushEnabled: false }));
+        success('Push notifications disabled', 'You will no longer receive notifications');
+      }
+    } catch (toggleError) {
+      const errorMessage = toggleError instanceof Error ? toggleError.message : 'Failed to toggle push notifications';
+      error('Failed to toggle notifications', errorMessage);
+      console.error('Failed to toggle push notifications:', toggleError);
+    } finally {
+      setIsTogglingPush(false);
+    }
+  };
+
+  const handlePhotoUpload = () => {
+    setShowAvatarModal(true);
+  };
+
+  const handleAvatarUploadComplete = async (imageUrl: string) => {
+    setIsUploadingPhoto(true);
+    
+    try {
+      // Update user profile with new avatar
+      await updateProfile({
+        name: user?.name || '',
+        email: user?.email || '',
+        image: imageUrl
+      });
+      
+      success('Avatar updated successfully!', 'Your new profile picture is now active');
+    } catch (uploadError) {
+      const errorMessage = uploadError instanceof Error ? uploadError.message : 'Failed to update avatar';
+      error('Failed to update avatar', errorMessage);
+      console.error('Failed to update avatar:', uploadError);
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -162,6 +246,7 @@ export default function UserSettings() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={handlePhotoUpload}
                     className="border-white/20 text-white hover:bg-white/10"
                   >
                     <Camera className="w-4 h-4 mr-2" />
@@ -249,7 +334,17 @@ export default function UserSettings() {
                         disabled={isSaving}
                         className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:opacity-90"
                       >
-                        {isSaving ? 'Saving...' : 'Save Changes'}
+                        {isSaving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save Changes
+                          </>
+                        )}
                       </Button>
                     </>
                   ) : (
@@ -300,9 +395,24 @@ export default function UserSettings() {
           >
             <Card className="glass border-white/10">
               <CardHeader>
-                <CardTitle className="text-white">Notification Preferences</CardTitle>
+                <CardTitle className="text-white flex items-center gap-2">
+                  Notification Preferences
+                  {isLoadingNotifications && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {isLoadingNotifications ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <Loader2 className="w-8 h-8 animate-spin text-cyan-400 mx-auto mb-2" />
+                      <p className="text-sm text-gray-400">Loading notification settings...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                
                 {/* Push Notifications Toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
                   <div className="flex items-center gap-3">
@@ -314,15 +424,20 @@ export default function UserSettings() {
                   </div>
                   <button
                     onClick={handleTogglePushNotifications}
+                    disabled={isTogglingPush}
                     className={`relative w-12 h-6 rounded-full transition-colors ${
                       notifications.pushEnabled ? 'bg-cyan-500' : 'bg-gray-600'
-                    }`}
+                    } ${isTogglingPush ? 'opacity-50' : ''}`}
                   >
-                    <div
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
-                        notifications.pushEnabled ? 'translate-x-6' : ''
-                      }`}
-                    />
+                    {isTogglingPush ? (
+                      <Loader2 className="w-3 h-3 text-white absolute top-1.5 left-1/2 transform -translate-x-1/2 animate-spin" />
+                    ) : (
+                      <div
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                          notifications.pushEnabled ? 'translate-x-6' : ''
+                        }`}
+                      />
+                    )}
                   </button>
                 </div>
 
@@ -357,6 +472,8 @@ export default function UserSettings() {
                     </div>
                   ))}
                 </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </motion.div>
@@ -462,6 +579,14 @@ export default function UserSettings() {
           </motion.div>
         )}
       </div>
+
+      {/* Avatar Upload Modal */}
+      <AvatarUploadModal
+        isOpen={showAvatarModal}
+        onClose={() => setShowAvatarModal(false)}
+        currentAvatar={user?.image}
+        onUploadComplete={handleAvatarUploadComplete}
+      />
     </MobileLayout>
   );
 }

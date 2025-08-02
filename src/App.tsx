@@ -4,6 +4,7 @@ import { useEffect, Suspense, lazy } from 'react';
 import { DeepLinkHandler } from './utils/deepLink';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import { GolfLoader } from './components/ui/golf-loader';
 
 // Lazy load pages for better performance
@@ -15,6 +16,7 @@ const Test = lazy(() => import('./pages/Test'));
 const GameCreator = lazy(() => import('./pages/GameCreator'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
 const UserSettings = lazy(() => import('./pages/UserSettings'));
+const StatsPage = lazy(() => import('./pages/StatsPage'));
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
@@ -28,7 +30,8 @@ function App() {
     <ErrorBoundary>
       <ConvexProvider client={convex}>
         <AuthProvider convex={convex}>
-          <Router>
+          <ToastProvider>
+            <Router>
             <Suspense fallback={
               <div className="min-h-screen gradient-golf-green flex items-center justify-center">
                 <GolfLoader size="lg" text="Loading..." />
@@ -44,10 +47,11 @@ function App() {
                 <Route path="/game/:gameId" element={<GameScorecard />} />
                 <Route path="/finish/:gameId" element={<LockerRoom />} />
                 <Route path="/settings" element={<UserSettings />} />
-                <Route path="/stats" element={<Navigate to="/settings?tab=profile" />} />
+                <Route path="/stats" element={<StatsPage />} />
               </Routes>
             </Suspense>
-          </Router>
+            </Router>
+          </ToastProvider>
         </AuthProvider>
       </ConvexProvider>
     </ErrorBoundary>
