@@ -26,6 +26,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationManager } from '@/utils/notificationManager';
 import { AvatarUploadModal } from '@/components/AvatarUploadModal';
+import { PrivacySettingsModal } from '@/components/PrivacySettingsModal';
+import { AppearanceModal } from '@/components/AppearanceModal';
 import { useToast } from '@/contexts/ToastContext';
 
 type TabType = 'profile' | 'notifications' | 'account' | 'help';
@@ -42,6 +44,8 @@ export default function UserSettings() {
   const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
   const [isTogglingPush, setIsTogglingPush] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showAppearanceModal, setShowAppearanceModal] = useState(false);
   
   // Profile form state
   const [formData, setFormData] = useState({
@@ -492,7 +496,10 @@ export default function UserSettings() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
-                  <button className="w-full p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left">
+                  <button 
+                    onClick={() => setShowPrivacyModal(true)}
+                    className="w-full p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Shield className="w-5 h-5 text-gray-400" />
@@ -505,7 +512,10 @@ export default function UserSettings() {
                     </div>
                   </button>
 
-                  <button className="w-full p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left">
+                  <button 
+                    onClick={() => setShowAppearanceModal(true)}
+                    className="w-full p-4 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Palette className="w-5 h-5 text-gray-400" />
@@ -586,6 +596,18 @@ export default function UserSettings() {
         onClose={() => setShowAvatarModal(false)}
         currentAvatar={user?.image}
         onUploadComplete={handleAvatarUploadComplete}
+      />
+
+      {/* Privacy Settings Modal */}
+      <PrivacySettingsModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
+
+      {/* Appearance Modal */}
+      <AppearanceModal
+        isOpen={showAppearanceModal}
+        onClose={() => setShowAppearanceModal(false)}
       />
     </MobileLayout>
   );
