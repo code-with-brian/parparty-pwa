@@ -216,10 +216,33 @@ The course mapping system uses a specific POI (Point of Interest) schema:
 }
 ```
 
+### Authentication & Social Login
+
+**Apple Sign-In**:
+- Plugin: `@capacitor-community/apple-sign-in@7.0.1`
+- Utility: `src/utils/appleAuth.ts`
+- Platform: iOS native, web fallback
+- Configuration: iOS entitlements, bundle ID setup
+- Status: ✅ Fully implemented and working
+
+**Google Sign-In**:
+- Plugin: `@capgo/capacitor-social-login@7.8.3`
+- Utility: `src/utils/googleAuth.ts`
+- Platform: iOS, Android, Web (cross-platform)
+- Configuration: Platform-specific OAuth client IDs required
+- Status: ✅ Fully implemented, needs production setup
+
+**Guest Conversion Flow**:
+- SmartConversionModal supports both Apple and Google authentication
+- AuthContext handles guest-to-user conversion seamlessly
+- Platform availability detection for optimal UX
+
 ### Current State & Notes
 
-- **Working Features**: Game creation, QR join, real-time scoring, social feed
+- **Working Features**: Game creation, QR join, real-time scoring, social feed, Apple & Google Sign-In
+- **Authentication**: Both Apple and Google Sign-In implemented with guest conversion
 - **Hardcoded Data**: F&B menu items, course information
 - **Import Workarounds**: Applied to ~15 components due to Convex type issue
 - **Mobile**: PWA ready but native features need device testing
 - **AI Highlights**: Backend ready but needs OpenAI key configuration
+- **Production Setup Needed**: Google Cloud Console OAuth configuration, Apple Developer account
